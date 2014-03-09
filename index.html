@@ -1,0 +1,334 @@
+<!-- simbit visualizer frontend for in-browser simulation -->
+<!doctype html>
+<html>
+	<head>
+		<title>simbit</title>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<style>
+			.network {
+			  border: 1px solid #DEDEDE;
+			  display:block;
+			  margin:auto;
+			}
+
+			svg {
+			  margin: auto;
+			  display:block;
+			}
+
+			rect {
+			  fill: none;
+			  pointer-events: all;
+			}
+
+			.node {
+			  fill: #000;
+			}
+
+			.link {
+			  stroke: #999;
+			}
+		</style>
+
+		<script type="text/javascript" src="d3.v3.min.js"></script>
+		<script type="text/javascript" src="jquery.min.js"></script>
+		<script type="text/javascript" src="require.js"></script>
+		<script src="goog/base.js"></script>
+		<script>
+		goog.require("goog.structs.PriorityQueue")
+		</script>
+	</head>
+	<body>
+		<table>
+			<tr>
+				<td>
+					<div class="network" style="width: 700px; height: 500px"></div>
+				</td>
+				<td id="logs" valign="top">
+					
+				</td>
+			</tr>
+			<tr>
+				<td valign="top">
+					<div style="float:right">
+					Elapsed: <span id="elapsed">0 seconds</span>&nbsp;&nbsp;
+					<input id="play" type="button" value="Play">&nbsp;&nbsp;
+					<input id="pause" type="button" value="Pause">&nbsp;&nbsp;
+					</div>
+					
+					<div style="float:left">
+					Speed: <input id="slower" type="button" value="⇠"><input id="defaultspeed" type="button" value="Default"><input id="faster" type="button" value="⇢">
+					&nbsp;&nbsp;<span id="relspeed">(1.00x)</span>
+					</div>
+				</td>
+				<td valign="top">
+
+				</td>
+			</tr>
+		</table>
+
+
+		<script type="text/javascript">
+			// make it so that net.run() doesn't actually run
+			var DELAY_RUN = {net:false};
+
+			function Visualizer(div) {
+				this.nindex = 0;
+				this.svg = null;
+				this.divname = div;
+				this.force = null;
+				this.nodes = null;
+				this.links = null;
+				this.slink = null;
+				this.snode = null;
+				this.edges = {};
+				this.inodes = [];
+				this.lastmsgs = [];
+				this.updated = false;
+				this.colormap = {};
+				this.colormap_u = false;
+				this.link_colormap = {};
+				this.link_colormap_last = 0;
+			}
+
+			Visualizer.prototype = {
+				width: 700,
+				height: 500,
+				linkDistance: 30,
+				charge: -150,
+				gravity: .5,
+
+				init: function() {
+					// init the network layout/svg
+					$(this.divname).css('width', this.width);
+					$(this.divname).css('height', this.height);
+
+					this.force = d3.layout.force()
+						.size([this.width,this.height])
+						.nodes([]) // no nodes
+						.friction(0.5)
+						.linkDistance(this.linkDistance)
+						.charge(this.charge)
+						.gravity(this.gravity);
+
+					this.svg = d3.select(this.divname).append("svg")
+				    	.attr("width", this.width)
+				    	.attr("height", this.height);
+
+				   	this.svg.append("rect")
+					    .attr("width", this.width)
+					    .attr("height", this.height);
+
+					this.nodes = this.force.nodes();
+					this.links = this.force.links();
+					this.slink = this.svg.selectAll(".link");
+					this.snode = this.svg.selectAll(".node");
+
+					this.force = this.force.on("tick", this.tick());
+
+					this.updated = true;
+					this.rehash(0);
+				},
+
+				log: function(msg) {
+					this.lastmsgs.push(msg);
+					if (this.lastmsgs.length > 20)
+						this.lastmsgs.shift();
+
+					var newlogs = "";
+
+					this.lastmsgs.forEach(function(e) {
+						newlogs += e + "<br />";
+					})
+
+					$("#logs").html(newlogs);
+				},
+
+				setColor: function(p, color) {
+					this.colormap_u = true;
+					this.colormap[p] = color;
+				},
+
+				setLinkActivity: function(p, now) {
+					this.link_colormap[p] = now;
+					this.link_colormap_last = 0;
+				},
+
+				getRandomLink: function() {
+					var result;
+					var count=1;
+					for (var prop in this.edges) {
+						if (Math.random() < 1/++count)
+							result = prop;
+					}
+					if (!result)
+						return -1;
+					var e = result.split("-");
+					return [parseInt(e[0]), parseInt(e[1])];
+				},
+
+				getRandomNode: function() {
+					return this.inodes[Math.floor(Math.random()*this.inodes.length)];
+				},
+
+				getKeyForID: function(id) {
+					return this.inodes.indexOf(id);
+				},
+
+				incCharge: function(amt) {
+					this.force.charge(this.force.charge() - amt);
+					this.updated = true;
+					///////////this.rehash();
+				},
+
+				addNode: function() {
+					// add a node, return the index
+					this.nodes.push({id:"n"+this.nindex});
+					this.inodes.push(this.nindex);
+					this.updated = true;
+					/////////////this.rehash();
+
+					this.nindex++;
+					return this.nindex-1;
+				},
+
+				connect: function(a, b) {
+					if (this.edges.hasOwnProperty(a + '-' + b) || this.edges.hasOwnProperty(b + '-' + a))
+						return false; // we're already connected
+
+					if (a==b)
+						return false; // can't connect to ourself silly!
+
+					this.edges[a + '-' + b] = {source:this.nodes[this.getKeyForID(a)],target:this.nodes[this.getKeyForID(b)]};
+					this.links.push(this.edges[a + '-' + b]);
+
+					this.updated = true;
+					//////this.rehash();
+				},
+
+				disconnect: function(a, b) {
+					if (!this.edges.hasOwnProperty(a + '-' + b) && !this.edges.hasOwnProperty(b + '-' + a))
+						return false; // we're already disconnected
+
+					var i = this.links.indexOf(this.edges[a + '-' + b]);
+					if (i<0)
+						i = this.links.indexOf(this.edges[b + '-' + a]);
+
+					delete this.edges[a + '-' + b];
+					delete this.edges[b + '-' + a];
+
+					this.links.splice(i, 1); // remove the link
+
+					this.updated = true;
+					//////this.rehash();
+				},
+
+				removeNode: function(index) {
+					// remove a node at index
+					var i = this.getKeyForID(index);
+					if (i < 0)
+						return false; // this one has already been removed
+
+					this.nodes.splice(i, 1);
+					this.inodes.splice(i, 1);
+					this.updated = true;
+					///////////////////this.rehash();
+				},
+
+				tick: function() {
+					var svg = this.svg;
+					return function() {
+						svg.selectAll(".link").attr("x1", function(d) { return d.source.x; })
+							.attr("y1", function(d) { return d.source.y; })
+							.attr("x2", function(d) { return d.target.x; })
+							.attr("y2", function(d) { return d.target.y; })
+							.attr("id", function(d) {return "l-" + d.source.id + "-" + d.target.id;});
+
+						svg.selectAll(".node").attr("cx", function(d) { return d.x; })
+							.attr("cy", function(d) { return d.y; });
+					}
+				},
+
+				rehash: function(now) {
+					/***** COLORMAP *****/
+					if (this.colormap_u) {
+						for (var p in this.colormap) {
+							$(".n" + p).css('fill', this.colormap[p]);
+						}
+						this.colormap_u = false;
+					}
+
+					if (this.link_colormap_last < (now-100)) {
+						this.link_colormap_last = now;
+						for (var p in this.link_colormap) {
+							if (this.link_colormap[p] + 100 > now) {
+								$("#l-" + p).css('stroke', "black")
+							} else {
+								$("#l-" + p).css('stroke', "#999")
+								delete this.link_colormap[p];
+							}
+						}
+					}
+
+					if (!this.updated)
+						return;
+
+					this.slink = this.slink.data(this.force.links(), function(d) { return d.source.id + "-" + d.target.id; });
+					this.slink.enter().insert("line", ".node")
+						.attr("class", "link");
+					this.slink.exit().remove();
+
+					this.snode = this.snode.data(this.force.nodes(), function(d) {return d.id;});
+					this.snode.enter().append("circle").attr("class", function (d) {return "node " + d.id;})
+						.attr("r", 3)
+						.call(this.force.drag);
+					this.snode.exit().remove();
+
+					this.force.start();
+
+					this.updated = false;
+				}
+			};
+
+			$("#network").html("");
+			var VISUALIZER = new Visualizer(".network");
+			VISUALIZER.init();
+		</script>
+		<script type="text/javascript" src="sim.js"></script>
+		<script type="text/javascript">
+			var amt = 10;
+			var play = false;
+
+			$("#play").click(function() {
+				play = true;
+			})
+
+			$("#pause").click(function() {
+				play = false;
+			})
+
+			$("#slower").click(function() {
+				amt = amt / 2;
+				$("#relspeed").html("(" + (amt / 10).toFixed(2) + "x)");
+			})
+
+			$("#faster").click(function() {
+				amt = amt * 2;
+				$("#relspeed").html("(" + (amt / 10).toFixed(2) + "x)");
+			})
+
+			$("#defaultspeed").click(function() {
+				amt = 10;
+				$("#relspeed").html("(" + (amt / 10).toFixed(2) + "x)");
+			})
+
+			setInterval(function() {
+				if (play && DELAY_RUN.net) {
+					DELAY_RUN.net._run(amt);
+					VISUALIZER.rehash();
+					$("#elapsed").html((DELAY_RUN.net.now / 1000).toFixed(2) + " seconds")
+				}
+			}, 10);
+		</script>
+	</body>
+</html>

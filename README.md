@@ -182,7 +182,7 @@ API
 | `.add (n, node)` | Creates `n` nodes, using `node` as a template. `node` is an instance of .Node |
 | `.check (t, f)` | `f()` is called every `t` msec of simulation |
 | `.run (msec)` | Run `msec` worth of simulation time. |
-
+| `.stop()` | Stops the simulation, existing `.run` tasks will halt. |
 
 #### Node
 
@@ -204,4 +204,6 @@ Functions like `.on()` or `.tick()` send the NodeState as function context to th
 | `.delay(t, f [, thisArg])` | `f` is called once, in `t` msec. |
 | `.prob(name, p, f [, thisArg])` | Attaches a handler `f` for a probabilistic tick event named `name`, which has a `p` chance of occuring every msec. |
 | `.deprob(name)` | Removes a probabilistic handler named `name`. |
-
+| `.now()` | Returns the current time, in msec, from the start of the simulation |
+| `.setColor(str)` | Sets the color of the current node to `str` |
+| `.log(str)` | Logs `str` for the node. |

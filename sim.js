@@ -61,11 +61,17 @@ client.init(function() {
 	})
 })
 
-var average = function(a) {
-  var r = {mean: 0, variance: 0, deviation: 0}, t = a.length;
-  for(var m, s = 0, l = t; l--; s += a[l]);
-  for(m = r.mean = s / t, l = t, s = 0; l--; s += Math.pow(a[l] - m, 2));
-  return r.deviation = Math.sqrt(r.variance = s / t), r;
+
+var stddev = function(a) {
+	var mean = 0;
+	a.forEach(function(num) { mean+=num; })
+	mean /= a.length;
+
+	var variance = 0;
+	a.forEach(function(num) { variance += Math.pow(num - mean, 2); })
+	variance /= a.length;
+
+	return Math.sqrt(variance);
 }
 
 net.add(100, client)
@@ -76,8 +82,11 @@ net.check(15000, function() {
 		times.push(node.getTime())
 	})
 
-	var x = average(times)
+	var x = stddev(times)
 
-	this.visualizer.log("stddev: " + x.deviation)
+	this.visualizer.log("stddev: " + x)
+
+	if (x < 2)
+		this.stop();
 })
 net.run(Infinity)

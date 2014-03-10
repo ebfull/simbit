@@ -364,7 +364,7 @@ Network.prototype = {
 		} else {
 			this._run(msec)
 			if (next)
-				next();
+				next.call(this);
 		}
 	},
 
@@ -372,7 +372,9 @@ Network.prototype = {
 		if (this.now >= this.maxrun) {
 			if (DELAY_RUN) {
 				if (DELAY_RUN.cb) {
-					DELAY_RUN.cb();
+					var cb = DELAY_RUN.cb;
+					DELAY_RUN.cb = false;
+					cb.call(this);
 				}
 			}
 			return;
@@ -382,6 +384,8 @@ Network.prototype = {
 
 		// actually run msec worth of shit
 		while (e = this.events.next(max)) {
+			this.now = e.time;
+
 			if (this.checkint && (e.time > this.nextcheck)) {
 				this.nextcheck = e.time + this.checkint;
 				this.checkf.call(this);
@@ -389,9 +393,13 @@ Network.prototype = {
 
 			this.now = e.time;
 			e.event.run(this)
+
+			if (this.now >= this.maxrun) {
+				return;
+			}
 		}
 
-		this.now += msec;
+		this.now = max;
 	},
 
 	// todo: allow for multiple check handlers, maybe turn checks into ticks
@@ -399,6 +407,10 @@ Network.prototype = {
 		this.nextcheck = this.now + msec;
 		this.checkint = msec;
 		this.checkf = f;
+	},
+
+	stop: function() {
+		this.maxrun = this.now;
 	}
 }
 

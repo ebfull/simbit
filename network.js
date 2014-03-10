@@ -265,6 +265,12 @@ function Network() {
 	this.now = 0;
 	this.maxrun = 0;
 
+	this.nextcheck = 0;
+	this.checkint = 0;
+	this.checkf = function() {
+
+	};
+
 	this.nodes = [];
 	this.nindex = 0;
 
@@ -376,11 +382,23 @@ Network.prototype = {
 
 		// actually run msec worth of shit
 		while (e = this.events.next(max)) {
+			if (this.checkint && (e.time > this.nextcheck)) {
+				this.nextcheck = e.time + this.checkint;
+				this.checkf.call(this);
+			}
+
 			this.now = e.time;
 			e.event.run(this)
 		}
 
 		this.now += msec;
+	},
+
+	// todo: allow for multiple check handlers, maybe turn checks into ticks
+	check: function(msec, f) {
+		this.nextcheck = this.now + msec;
+		this.checkint = msec;
+		this.checkf = f;
 	}
 }
 

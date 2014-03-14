@@ -202,7 +202,7 @@ NodeState.prototype = {
 
 	handle: function(from, name, obj) {
 		if (typeof this.handlers[name] != "undefined") {
-			this.handlers[name](from, obj)
+			return this.handlers[name](from, obj)
 		}
 	},
 
@@ -212,7 +212,7 @@ NodeState.prototype = {
 
 		if (typeof this.handlers[name] != "undefined") {
 			var oldHandler = this.handlers[name];
-			this.handlers[name] = function(from, obj) {oldHandler.call(ctx, from, obj); f.call(ctx, from, obj);}
+			this.handlers[name] = function(from, obj) {if (f.call(ctx, from, obj)) oldHandler.call(from, obj);}
 		} else {
 			this.handlers[name] = function(from, obj) {return f.call(ctx, from, obj);};
 		}
@@ -254,6 +254,203 @@ Node.prototype = {
 	},
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+function Group(parent) {
+	this._r = 0;
+	this.states = {};
+	this.children = [];
+
+	if (parent) {
+		this._r = 1;
+		this.consensus = parent.consensus;
+		this.parent = parent;
+		this.id = parent.id;
+
+		this.parent.children.push(this);
+	}
+}
+
+Group.prototype = {
+	get: function(k) {
+		if (k in this.states) {
+			return this.states[k];
+		} else {
+			if (this.parent) {
+				return this.parent.get(k);
+			} else {
+				var base = {state:0};
+				base.__proto__ = this.consensus.store[k];
+				return base;
+			}
+		}
+	},
+	set: function(k, value) {
+		value.__proto__ = this.consensus.store[k]; // todo: not sure if this is a good design
+		this.states[k] = value;
+	},
+	inherit: function() {
+		// inherit states from our parent
+		for (var id in this.parent.states) {
+			if (!(id in this.states)) {
+				this.states[id] = this.parent.states[id];
+			}
+		}
+
+		this.parent = this.parent.parent;
+	},
+	retain: function() {
+		this._r++;
+	},
+	release: function() {
+		this._r--;
+
+		if (this._r == 0) {
+			// nothing will switch to this state again, remove us from cache
+			this.consensus.rmgroup(this);
+
+			// merge upward as much as possible
+			while (this.parent && this.parent._r == 0) {
+				if (Object.keys(this.parent.states).length <= Object.keys(this.states).length) {
+					this.inherit();
+				} else {
+					break;
+				}
+			}
+
+			// release our children
+			this.children.forEach(function(child) {
+				child.release();
+			})
+
+			// garbage collect
+			this.children = false;
+		}
+	}
+}
+
+function Consensus() {
+	this._defaultGroup = this.rand();
+	this.store = {}; // key value store for objects themselves
+	var defaultGroup = new Group();
+	defaultGroup.id = this._defaultGroup;
+	defaultGroup.parent = false;
+	defaultGroup.consensus = this;
+
+	this.groups = {};
+	this.groups[this._defaultGroup] = defaultGroup;
+}
+
+function LocalizedState(consensus) {
+	this.consensus = consensus;
+	this.group = consensus.group(consensus._defaultGroup);
+	this.group.retain();
+	this.id = consensus.rand();
+}
+
+Consensus.prototype = {
+	group: function(name) {
+		if (!(name in this.groups)) {
+			return false;
+		}
+
+		return this.groups[name];
+	},
+	newgroup: function(g) {
+		this.groups[g.id] = g;
+	},
+	rmgroup: function(g) {
+		delete this.groups[g.id];
+	},
+	add: function(key, obj) {
+		this.store[key] = obj;
+	},
+	obtain: function() {
+		return new LocalizedState(this);
+	},
+	rand: function() {
+		return String.fromCharCode(
+			Math.floor(Math.random() * 256),
+			Math.floor(Math.random() * 256),
+			Math.floor(Math.random() * 256),
+			Math.floor(Math.random() * 256),
+			Math.floor(Math.random() * 256),
+			Math.floor(Math.random() * 256),
+			Math.floor(Math.random() * 256),
+			Math.floor(Math.random() * 256),
+			Math.floor(Math.random() * 256),
+			Math.floor(Math.random() * 256),
+			Math.floor(Math.random() * 256),
+			Math.floor(Math.random() * 256),
+			Math.floor(Math.random() * 256),
+			Math.floor(Math.random() * 256),
+			Math.floor(Math.random() * 256)
+			)
+	},
+	xor: function(a, b) {
+		var n = "";
+
+		for (var i=0;i<a.length;i++) {
+			n += String.fromCharCode(a.charCodeAt(i) ^ b.charCodeAt(i));
+		}
+
+		return n;
+	},
+	rot: function(a, k) {
+		var n = "";
+
+		for (var i=k;i<a.length;i++) {
+			n += String.fromCharCode(a.charCodeAt(i));
+		}
+		for (var i=0;i<k;i++) {
+			n += String.fromCharCode(a.charCodeAt(i));
+		}
+
+		return n;
+	}
+};
+
+LocalizedState.prototype = {
+	set: function(k, v) {
+		return this.group.set(k, v);
+	},
+	get: function(k) {
+		return this.group.get(k);
+	},
+	create: function(obj) {
+		return obj.init(this.consensus);
+	},
+	xor: function(a, b) {
+		return this.consensus.xor(a, b);
+	},
+	rot: function(a, k) {
+		return this.consensus.rot(a, k);
+	},
+	shift: function(nid) {
+		var nn;
+		if (nn = this.consensus.group(nid)) {
+			var oldgroup = this.group;
+			this.group = nn;
+			nn.retain();
+			oldgroup.release();
+			return true;
+		} else {
+			var oldgroup = this.group;
+			this.group = new Group(this.group); // new group
+			this.group.id = nid;
+
+			this.consensus.newgroup(this.group)
+
+			this.group.retain();
+
+			oldgroup.release();
+			return false;
+		}
+	}
+};
+
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 function Network() {
 	this.events = new Events(); // normal events
 	this.pevents = {}; // probablistic event buckets
@@ -282,7 +479,7 @@ Network.prototype = {
 	// grab a shared cache object
 	shared: function(name) {
 		if (typeof this._shared[name] == "undefined") {
-			this._shared[name] = new ConsensusState(false, false);
+			this._shared[name] = new Consensus();
 		}
 
 		return this._shared[name];

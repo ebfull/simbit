@@ -6,5 +6,9 @@ var net = require("./network"),
 client.use(peermgr)
 client.use(inventory)
 
+client.init(function() {
+	
+})
+
 net.add(100, client)
 net.run(Infinity)

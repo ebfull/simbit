@@ -80,7 +80,7 @@ function Inventory(self) {
 
 			if (Object.keys(invPacket) != 0) {
 				doneSomething = true;
-				self.peermgr.send(p, "inv", invPacket)
+				this.__send_inv(p, invPacket)
 
 				this.tellPeer[p] = {}; // don't need to tell the peer that anymore
 			}
@@ -106,13 +106,34 @@ function Inventory(self) {
 
 			doneSomething = true;
 
-			self.peermgr.send(p, "getdata", askMap[p])
+			this.__send_getdata(p, askMap[p])
 		}
 
 		if (!doneSomething) {
 			this.polling = false; // we don't need to poll again
 			return false; // don't tick again
 		}
+	}
+
+	/*
+		p, {name1: type1, name2: type2, ...}
+	*/
+	this.__send_inv = function(p, mapNameTypes) {
+		self.peermgr.send(p, "inv", mapNameTypes);
+	}
+
+	/*
+		p, [name1, name2, name3]
+	*/
+	this.__send_getdata = function(p, askList) {
+		self.peermgr.send(p, "getdata", askList);
+	}
+
+	/*
+		p, (InventoryObject) o
+	*/
+	this.__send_invobj = function(p, o) {
+		self.peermgr.send(p, "invobj", o);
 	}
 
 	this.relay = function(name) {
@@ -138,7 +159,7 @@ function Inventory(self) {
 	this.onGetdata = function(from, msg) {
 		msg.forEach(function(name) {
 			if (o = this.getObj(name)) {
-				self.peermgr.send(from, "invobj", o)
+				this.__send_invobj(from, o);
 			}
 		}, this)
 	}

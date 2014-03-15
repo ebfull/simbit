@@ -18,7 +18,7 @@ client.init(function() {
 
 			var inv = this.inventory.createObj("tx", tx);
 
-			this.inventory.relay(inv.name);
+			this.inventory.relay(inv.id);
 		})
 	}
 

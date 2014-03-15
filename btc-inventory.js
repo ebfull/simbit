@@ -7,7 +7,6 @@
 function InventoryObject(type, obj) {
 	this.type = type;
 	this.obj = obj;
-	this.name = obj.id;
 	this.id = obj.id;
 }
 
@@ -191,15 +190,15 @@ function Inventory(self) {
 		// add it
 		if (this.addObj(o)) {
 			// stop asking other peers for it (if we are)
-			delete this.mapAlreadyAskedFor[o.name]
+			delete this.mapAlreadyAskedFor[o.id]
 
 			for (var p in this.mapAskFor) {
-				delete this.mapAskFor[p][o.name]
+				delete this.mapAskFor[p][o.id]
 			}
 
 			// we no longer care that our peers have this object
 			for (var p in this.peerHas) {
-				delete this.peerHas[p][o.name]
+				delete this.peerHas[p][o.id]
 			}
 
 			// now run a handler
@@ -208,7 +207,7 @@ function Inventory(self) {
 	}
 
 	this.addObj = function(obj) {
-		var ir = this.objects.get(obj.name);
+		var ir = this.objects.get(obj.id);
 		if (ir.state == ir.STATE_NONE) {
 			obj.seen(this.objects);
 

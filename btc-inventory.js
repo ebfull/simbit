@@ -1,12 +1,14 @@
 /*
 	btc-inventory
+
+	Mimics the Bitcoin inventory system.
 */
 
 function InventoryObject(type, obj) {
 	this.type = type;
 	this.obj = obj;
-	this.name = obj.name;
-	this.id = obj.name;
+	this.name = obj.id;
+	this.id = obj.id;
 }
 
 InventoryObject.prototype = {
@@ -230,6 +232,8 @@ function Inventory(self) {
 		this.peerHas[from] = {};
 		this.tellPeer[from] = {};
 		this.mapAskFor[from] = {};
+
+		// todo: send full inventory
 	}, this)
 
 	self.on("peermgr:disconnect", function(from) {

@@ -332,7 +332,7 @@ Group.prototype = {
 function Consensus() {
 	this._defaultGroup = this.rand();
 	this.store = {}; // key value store for objects themselves
-	var defaultGroup = new Group();
+	var defaultGroup = new Group(false);
 	defaultGroup.id = this._defaultGroup;
 	defaultGroup.parent = false;
 	defaultGroup.consensus = this;
@@ -360,6 +360,9 @@ Consensus.prototype = {
 		this.groups[g.id] = g;
 	},
 	rmgroup: function(g) {
+		if (g.id == this._defaultGroup) // never delete
+			return;
+
 		delete this.groups[g.id];
 	},
 	add: function(key, obj) {
@@ -446,6 +449,9 @@ LocalizedState.prototype = {
 			oldgroup.release();
 			return false;
 		}
+	},
+	rand: function() {
+		return this.consensus.rand();
 	}
 };
 

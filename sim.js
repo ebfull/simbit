@@ -13,19 +13,33 @@ client.init(function() {
 
 		this.delay(30000, function() {
 			var tx = this.transactions.create([], 3);
+			var child1 = this.transactions.create([tx.in(0)], 3);
+			var child2 = this.transactions.create([tx.in(0)], 3);
 
-			console.log(tx)
+			//this.transactions.enter(tx);
+			//this.transactions.enter(child1);
 
-			var inv = this.inventory.createObj("tx", tx);
+			//this.inventory.createObj("tx", tx);
+			this.inventory.createObj("tx", child1);
+			//this.inventory.createObj("tx", child2);
 
-			this.inventory.relay(inv.id);
+			this.inventory.relay(child1.id);
+
+			this.delay(30000, function() {
+				this.transactions.enter(tx);
+				this.transactions.enter(child1);
+
+				this.inventory.createObj("tx", tx);
+
+				this.inventory.relay(tx.id)
+
+				this.delay(100000, function() {
+					this.inventory.createObj("tx", child2);
+					this.inventory.relay(child2.id);
+				})
+			})
 		})
 	}
-
-	this.on("inv:tx", function(from, tx) {
-		this.log(":)")
-		this.inventory.relay(tx.id)
-	})
 })
 
 net.add(100, client)

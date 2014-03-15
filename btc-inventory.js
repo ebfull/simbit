@@ -202,7 +202,7 @@ function Inventory(self) {
 			}
 
 			// now run a handler
-			self.handle(from, "inv:" + o.type, o.obj)
+			self.handle(from, "obj:" + o.type, o.obj)
 		}
 	}
 

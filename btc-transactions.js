@@ -71,7 +71,7 @@ TransactionValidator.prototype = {
 		}
 
 		// let's move to a new state group
-		if (me.shift(this.id()))
+		if (me.shift(this.id(me)))
 			return; // using cached shift
 
 		// remove all conflicting transactions
@@ -98,7 +98,7 @@ TransactionValidator.prototype = {
 			return false;
 
 		// move to a new state group
-		if (me.shift(this.id()))
+		if (me.shift(this.id(me)))
 			return; // using cached shift
 
 		// remove child transactions
@@ -114,6 +114,10 @@ Transaction.prototype = {
 	STATE_NONE: 0,
 	STATE_UNSPENT: 2,
 	STATE_SPENT: 3,
+
+	in: function(n) {
+		return new TxIn(this, n);
+	},
 
 	init: function(consensus) {
 		var n = 0;
@@ -212,6 +216,41 @@ Transaction.prototype = {
 				me.set(input.k, {state:this.STATE_UNSPENT});
 
 		}, this);
+	},
+
+	// NO VALIDATION OF DUPLICATES
+	orphan: function(me) {
+		if (me.shift(me.xor(me.group.id, this.id)))
+			return;
+
+		this.vin.forEach(function(input) {
+			var cur = me.get(input.k)
+
+			var children = [];
+
+			if (cur.state != 0) {
+				children = cur.children;
+			}
+
+			children.push(this)
+
+			me.set(input.k, {state:1, children:children})
+		}, this)
+	},
+
+	unorphan: function(me) {
+		if (me.shift(me.xor(me.group.id, this.id)))
+			return;
+
+		this.vin.forEach(function(input) {
+			var cur = me.get(input.k)
+
+			children = cur.children;
+
+			children.splice(children.indexOf(this), 1);
+
+			me.set(input.k, {state:1, children:children})
+		}, this)
 	}
 };
 
@@ -219,6 +258,7 @@ function Transactions(self) {
 	self.transactions = this;
 
 	this.UTXO = self.network.shared("UTXO").obtain();
+	this.mapOrphans = self.network.shared("mapOrphans").obtain();
 
 	this.create = function(inputs, n) {
 		var nid = this.UTXO.rand();
@@ -229,6 +269,64 @@ function Transactions(self) {
 
 		return tx;
 	}
+
+	// tries to add transactions which this tx may have 
+	this.processOrphans = function(tx) {
+		// find any tx in mapOrphans which spends from our TxOuts
+
+		// todo: maybe move this to Transaction
+		tx.vout.forEach(function(output) {
+			var cur = this.mapOrphans.get(output.k);
+
+			if ((cur.state != 0) && (cur.children.length > 0)) {
+				cur.children.forEach(function(childOrphan) {
+					if (this.enter(childOrphan)) {
+						self.log("removed tx from mapOrphans")
+						self.inventory.relay(childOrphan.id)
+						childOrphan.unorphan(this.mapOrphans)
+						this.processOrphans(childOrphan)
+					}
+				}, this)
+			}
+		}, this)
+	}
+
+	// attempts to enter tx into utxo/mempool/maporphans
+	// returns bool whether we accepted it, and it should be relayed
+	this.enter = function(tx, force) {
+		var val = tx.validate(this.UTXO);
+
+		if (force && val.state == val.CONFLICT)
+			val.state = val.VALID;
+
+		switch (val.state) {
+			case val.INVALID:
+				self.log("rejected tx, invalid")
+				return false;
+			break;
+			case val.ORPHAN:
+				tx.orphan(this.mapOrphans);
+				self.log("rejected tx, added to mapOrphans")
+				return false;
+			break;
+			case val.CONFLICT:
+				self.log("rejected tx, double-spend")
+				return false;
+			break;
+			case val.VALID:
+				val.apply(this.UTXO); // add to UTXO
+				this.processOrphans(tx);
+				return true;
+			break;
+		}
+	}
+
+	self.on("obj:tx", function(from, tx) {
+		self.log("Transactions: received tx " + tx.id)
+		if (this.enter(tx)) {
+			self.inventory.relay(tx.id)
+		}
+	}, this)
 }
 
 module.exports = Transactions;

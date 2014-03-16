@@ -57,7 +57,7 @@ Block.prototype = {
 		var old = this.difficulty;
 		this.difficulty *= this.target_avg_between_blocks / avg;
 
-		console.log("(h=" + this.h + ") difficulty adjustment " + (this.target_avg_between_blocks / avg) + "x")
+		//console.log("(h=" + this.h + ") difficulty adjustment " + (this.target_avg_between_blocks / avg) + "x")
 	},
 	_prev: function() {
 		return this.__prev;
@@ -155,7 +155,8 @@ Chainstate.prototype = {
 		b.addPrev(this.prevs);
 
 		this.mapOrphans.delete(this.head)
-		this.self.inventory.relay(this.head.id);
+		if (!this.self.explicitRelay)
+			this.self.inventory.relay(this.head.id);
 	},
 	reverse: function() {
 		this.mapOrphans.add(this.head)
@@ -209,7 +210,7 @@ Chainstate.prototype = {
 			if (curprev.state == 1) {
 				var bestOrphanPath = this.getOrphanWorkPath(cur)
 				if ((force && bestOrphanPath.work >= this.head.work) || bestOrphanPath.work > this.head.work) {
-					console.log(this.self.id + ": adopting orphan chain of (w=" + bestOrphanPath.work + " vs. local " + this.head.work + ")")
+					//console.log(this.self.id + ": adopting orphan chain of (w=" + bestOrphanPath.work + " vs. local " + this.head.work + ")")
 					ourorphans += this.enter(bestOrphanPath.end, true, true)
 				}
 
@@ -229,7 +230,7 @@ Chainstate.prototype = {
 	},
 	// enter a block into the chainstate, perhaps resulting in a reorg, and also perhaps resulting in its inclusion within maporphans
 	enter: function(block, force, doingReorg) {
-		this.self.log((doingReorg ? "(reorg) " : "") + "entering new block at height " + block.h)
+		//console.log((doingReorg ? "(reorg) " : "") + "entering new block at height " + block.h)
 		if (block == this.head)
 			return -1
 
@@ -243,8 +244,8 @@ Chainstate.prototype = {
 
 		if (typeof force == "undefined")
 			force = false;
-		else if (force)
-			this.self.log("\tchainstate forcefully entering branch")
+		//else if (force)
+		//	this.self.log("\tchainstate forcefully entering branch")
 
 		var numorphan = -1;
 
@@ -274,7 +275,7 @@ Chainstate.prototype = {
 				}
 			}
 		} else if (this.head.work == block.work) {
-			this.self.log("\tblock rejected; already seen one at this chainlength")
+			//this.self.log("\tblock rejected; already seen one at this chainlength")
 		}
 
 		if (!doingReorg)
@@ -289,6 +290,10 @@ function Blockchain(self) {
 
 	this.chainstate = new Chainstate(GenesisBlock, self);
 
+	this.newChainstate = function() {
+		return new Chainstate(this.chainstate.head, self);
+	}
+
 	// When we receive a new block, either over the wire or by mining it, process it here.
 	this.onBlock = function(b) {
 		if (this.chainstate.enter(b) != -1) {
@@ -296,18 +301,15 @@ function Blockchain(self) {
 		};
 	}
 
-	this.onMine = function() {
-		var newBlock = new Block(this.chainstate.head, self.now(), self);
-
-		if (this.chainstate.enter(newBlock) != -1) {
-			self.inventory.createObj("block", newBlock)
-			self.inventory.relay(newBlock.id);
-		}
-	}
-
 	self.on("obj:block", function(from, o) {
 		this.onBlock(o);
+
+		self.handle(from, "blockchain:block", o);
 	}, this)
+}
+
+Blockchain.prototype = {
+	Block: Block
 }
 
 module.exports = Blockchain;

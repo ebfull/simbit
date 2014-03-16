@@ -1,17 +1,9 @@
 function Miner(self) {
 	self.miner = this;
 
-	self.mprob = 0;
-
-	this.difficulty = self.blockchain.chainstate.head.difficulty;
-	this.enabled = false;
-
 	var updateDifficulty = function () {
-		var cur = self.blockchain;
-
-		if (self.miner.difficulty != cur.chainstate.head.difficulty) {
-			self.miner.difficulty = cur.chainstate.head.difficulty;
-
+		if (self.miner.difficulty != self.miner.staged.difficulty) {
+			self.miner.difficulty = self.miner.staged.difficulty;
 			if (self.miner.enabled) {
 				self.miner.stopMining()
 				self.miner.startMining()
@@ -19,18 +11,19 @@ function Miner(self) {
 		}
 	}
 
-	// Hook the onBlock routine for the blockchain
-	// (to adjust our mining target if necessary)
-	var oldNormalOnBlock = self.blockchain.onBlock;
-	self.blockchain.onBlock = function(b) {
-		oldNormalOnBlock.call(self.blockchain, b)
-
-		updateDifficulty();
+	self.mprob = 0;
+	this.mcb = function() {
+		return new self.blockchain.Block(self.blockchain.chainstate.head, self.now(), self);
 	}
+	this.staged = false;
+	this.enabled = false;
+	this.difficulty = false;
 
 	// expose mine() to NodeState
-	self.mine = function(amt) {
+	self.mine = function(amt, cb) {
 		this.mprob = amt;
+		if (cb)
+			self.miner.mcb = cb;
 
 		self.miner.startMining();
 	}
@@ -47,20 +40,35 @@ function Miner(self) {
 		if (this.enabled)
 			return;
 
+		this.staged = this.mcb.call(self); // restage next block
+		this.difficulty = this.staged.difficulty;
 		this.enabled = true;
 
 		if (self.mprob) {
-			var cur = self.blockchain;
+			self.prob("mining", self.mprob / this.staged.difficulty, function() {
+				self.log("I MINED A BLOCK h=" + this.staged.h)
+				self.handle(-1, "miner:success", this.staged);
 
-			self.prob("mining", self.mprob / cur.chainstate.head.difficulty, function() {
-				cur.onMine()
-
-				updateDifficulty()
-
-				self.log("[" + self.now() + "]: " + self.id + ": mined block at h=" + cur.chainstate.head.h)
+				this.staged = this.mcb.call(self); // restage next block
+				updateDifficulty();
 			}, this)
 		}
 	}
+
+	self.on("miner:success", function(from, b) {
+		b.time = self.now();
+
+		self.inventory.createObj("block", b)
+
+		if (self.blockchain.chainstate.enter(b) != -1) {
+			self.inventory.relay(b.id);
+		}
+	}, this)
+
+	self.on("blockchain:block", function(from, b) {
+		this.staged = this.mcb.call(self); // restage next block
+		updateDifficulty();
+	}, this)
 }
 
 module.exports = Miner;

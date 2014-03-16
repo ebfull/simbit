@@ -155,6 +155,7 @@ Chainstate.prototype = {
 		b.addPrev(this.prevs);
 
 		this.mapOrphans.delete(this.head)
+		this.self.inventory.relay(this.head.id);
 	},
 	reverse: function() {
 		this.mapOrphans.add(this.head)

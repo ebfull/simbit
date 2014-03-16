@@ -140,10 +140,12 @@ function Inventory(self) {
 	this.relay = function(name) {
 		var ir = this.objects.get(name);
 
-		if (ir.relay(this.objects)) {
-			for (var p in this.tellPeer) {
-				this.addTick();
-				this.tellPeer[p][name] = ir.type;
+		if ('relay' in ir) {
+			if (ir.relay(this.objects)) {
+				for (var p in this.tellPeer) {
+					this.addTick();
+					this.tellPeer[p][name] = ir.type;
+				}
 			}
 		}
 	}

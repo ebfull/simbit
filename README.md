@@ -8,7 +8,7 @@ simbit is a javascript simulation framework with an emphasis on consensus networ
 new structures, protocols and concepts, and to understand their effects on latency-sensitive systems. **It is designed for 
 both in-browser realtime simulation/visualization and clustered simulations using Node.**
 
-![Example visualization](http://i.imgur.com/6ewJNUU.gif)
+![Example visualization](http://i.imgur.com/0oSfSw4.gif)
 
 Running
 -------

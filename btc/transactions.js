@@ -219,6 +219,7 @@ Transaction.prototype = {
 	},
 
 	// NO VALIDATION OF DUPLICATES
+	// todo: purge old orphans, how??
 	orphan: function(me) {
 		if (me.shift(me.xor(me.group.id, this.id)))
 			return;

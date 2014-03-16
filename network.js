@@ -260,6 +260,7 @@ function Group(parent) {
 	this._r = 0;
 	this.states = {};
 	this.children = [];
+	this.defunct = false;
 
 	if (parent) {
 		this._r = 1;
@@ -305,7 +306,8 @@ Group.prototype = {
 	release: function() {
 		this._r--;
 
-		if (this._r == 0) {
+		if ((this._r == 0) && !this.defunct) {
+			this.defunct = true;
 			// nothing will switch to this state again, remove us from cache
 			this.consensus.rmgroup(this);
 
@@ -482,6 +484,10 @@ function Network() {
 
 Network.prototype = {
 	Node: Node,
+	// random data
+	rand: function(name) {
+		return Consensus.prototype.rand();
+	},
 	// grab a shared cache object
 	shared: function(name) {
 		if (typeof this._shared[name] == "undefined") {

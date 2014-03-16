@@ -148,10 +148,13 @@ function Inventory(self) {
 		}
 	}
 
-	this.getObj = function(name) {
+	this.getObj = function(name, mustRelay) {
 		var ir = this.objects.get(name);
 
 		if (ir.state == ir.STATE_NONE)
+			return false;
+
+		if (mustRelay && ir.state == ir.STATE_SEEN)
 			return false;
 
 		return ir.__proto__;
@@ -159,7 +162,7 @@ function Inventory(self) {
 
 	this.onGetdata = function(from, msg) {
 		msg.forEach(function(name) {
-			if (o = this.getObj(name)) {
+			if (o = this.getObj(name, true)) {
 				this.__send_invobj(from, o);
 			}
 		}, this)

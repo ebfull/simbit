@@ -79,93 +79,59 @@ Block.prototype = {
 }
 
 function MapOrphanBlocks(self) {
-	/*
-	this.mapOrphansByPrev = self.network.shared("block_maporphansbyprev")
-	this.mapOrphans = self.network.shared("block_maporphans")
-
-	this.mapOrphansByPrev.retain()
-	this.mapOrphans.retain()
-	*/
+	this.mapOrphans = [];
+	this.mapOrphansByPrev = {};
 }
 
 MapOrphanBlocks.prototype = {
 	add: function(b) {
-		return; // todo
+		if (this.mapOrphans.indexOf(b) != -1)
+			return false;
 
-		var mo_tr = new OrphanBlock(b);
-
-		var val = this.mapOrphans.validate(mo_tr)
-
-		if (val.state == val.VALID) {
-			this.mapOrphans = this.mapOrphans.shift(val)
-
-			// 2. add to mapOrphansByPrev
-			var mobp_tr = new OrphanBlockByPrev(b)
-
-			val = this.mapOrphansByPrev.validate(mobp_tr)
-
-			if (val.state == val.VALID) {
-				this.mapOrphansByPrev = this.mapOrphansByPrev.shift(val)
-
-				return true;
-			}
+		// max size is 10
+		if (this.mapOrphans.length == 100) {
+			this.delete(this.mapOrphans[0]);
 		}
 
-		return false;
+		this.mapOrphans.push(b);
+
+		if (!(b._prev().id in this.mapOrphansByPrev)) {
+			this.mapOrphansByPrev[b._prev().id] = [];
+		}
+		this.mapOrphansByPrev[b._prev().id].push(b);
+
+		return true;
 	},
 
 	delete: function(b) {
-		return; // todo
+		if (this.mapOrphans.indexOf(b) == -1)
+			return;
 
-		var mo = this.mapOrphans.fetch(new FetchEntry(b.id), "b:"+b.id).result;
+		var removed = this.mapOrphans.splice(this.mapOrphans.indexOf(b), 1)
+		var m = this.mapOrphansByPrev[b._prev().id];
+		
+		m.splice(m.indexOf(b), 1);
 
-		if (mo) {
-			var val = this.mapOrphans.invalidate(mo)
-
-			if (val.state == val.VALID) {
-				this.mapOrphans = this.mapOrphans.shift(val)
-
-				var mobp = this.mapOrphansByPrev.fetch(new FetchEntries(b._prev().id, b.id), "prev:"+b._prev().id+","+b.id).result;
-
-				if (mobp) {
-					val = this.mapOrphansByPrev.invalidate(mobp)
-
-					if (val.state == val.VALID) {
-						this.mapOrphansByPrev = this.mapOrphansByPrev.shift(val)
-					}
-				}
-			}
+		if (m.length == 0) {
+			delete this.mapOrphansByPrev[b._prev().id]
 		}
 	},
 
 	// returns boolean whether the block is an orphan already
 	is: function(b) {
-		return false; // todo
+		if (this.mapOrphans.indexOf(b) == -1)
+			return false;
 
-		return this.mapOrphans.fetch(new FetchEntry(b.id), "b:" + b.id).result;
+		return true;
 	},
 
 	// finds any blocks that depended on this block within this maporphans
 	getForPrev: function(prev) {
-		return []; // todo
-
-		var d = this.mapOrphansByPrev.fetch(new FetchEntries(prev.id), "allprev:" + prev.id).result
-
-		if (!d)
-			return [];
-		else {
-			var newd = [];
-
-			d.forEach(function(element) {
-				newd.push(element.b)
-			})
-
-			return newd;
+		if (prev.id in this.mapOrphansByPrev) {
+			return this.mapOrphansByPrev[prev.id];
 		}
-	},
 
-	cleanOrphans: function(h) {
-		// todo, we should use the given h to clear out old blocks from maporphans
+		return [];
 	}
 }
 
@@ -182,9 +148,6 @@ function Chainstate(head, self) {
 }
 
 Chainstate.prototype = {
-	cleanOrphans: function() {
-		this.mapOrphans.cleanOrphans(this.head.h - 20)
-	},
 	forward: function(b) {
 		this.self.setColor(b.color)
 		this.head = b
@@ -192,7 +155,6 @@ Chainstate.prototype = {
 		b.addPrev(this.prevs);
 
 		this.mapOrphans.delete(this.head)
-		this.cleanOrphans();
 	},
 	reverse: function() {
 		this.mapOrphans.add(this.head)
@@ -246,7 +208,7 @@ Chainstate.prototype = {
 			if (curprev.state == 1) {
 				var bestOrphanPath = this.getOrphanWorkPath(cur)
 				if ((force && bestOrphanPath.work >= this.head.work) || bestOrphanPath.work > this.head.work) {
-					//console.log(this.self.id + ": adopting orphan chain of (w=" + bestOrphanPath.work + " vs. local " + this.head.work + ")")
+					console.log(this.self.id + ": adopting orphan chain of (w=" + bestOrphanPath.work + " vs. local " + this.head.work + ")")
 					ourorphans += this.enter(bestOrphanPath.end, true, true)
 				}
 

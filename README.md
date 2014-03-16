@@ -118,12 +118,7 @@ statistics.
 
 ### Middleware
 
-In addition to `peermgr`, several other modules are being developed for simulating bitcoin specifically. These include:
-
-1. `btc-inventory` for inventory objects and optimal propagation.
-2. `btc-transactions` for transactions, a UTXO structure, mapOrphans(ByPrev)
-3. `btc-blockchain` for a blockchain simulation, including difficulty adjustment, reorgs
-4. `btc-miner` for mining simulation
+In addition to `peermgr`, a module `btc` is being created to simulate the Bitcoin reference client.
 
 You can create your own middleware like so:
 

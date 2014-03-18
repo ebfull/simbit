@@ -69,6 +69,12 @@ function PeerMgr(self) {
 		}
 	}
 
+	this.each = function(cb) {
+		for (var p in this.peers) {
+			cb.call(self, p)
+		}
+	}
+
 	// sends a message to all active peers
 	this.broadcast = function(name, msg) {
 		for (var p in this.peers) {

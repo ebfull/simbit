@@ -105,7 +105,7 @@ MapOrphanBlocks.prototype = {
 
 	delete: function(b) {
 		if (this.mapOrphans.indexOf(b) == -1)
-			return;
+			return false;
 
 		var removed = this.mapOrphans.splice(this.mapOrphans.indexOf(b), 1)
 		var m = this.mapOrphansByPrev[b._prev().id];
@@ -115,6 +115,8 @@ MapOrphanBlocks.prototype = {
 		if (m.length == 0) {
 			delete this.mapOrphansByPrev[b._prev().id]
 		}
+
+		return true;
 	},
 
 	// returns boolean whether the block is an orphan already
@@ -154,8 +156,7 @@ Chainstate.prototype = {
 		
 		b.addPrev(this.prevs);
 
-		this.mapOrphans.delete(this.head)
-		if (!this.self.explicitRelay)
+		if (this.mapOrphans.delete(this.head))
 			this.self.inventory.relay(this.head.id);
 	},
 	reverse: function() {

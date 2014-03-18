@@ -12,56 +12,40 @@ client.use(btc)
 
 client.init(function() {
 	if (this.id == 0) { // node 0 is the selfish miner
-		var privateBlockchain = this.blockchain.newChainstate();
+	//if (false) {
+		this.peermgr.maxpeers = 99;
 		var lead = [];
 		var state = 0;
 
-		this.explicitRelay = true;
-
 		this.mine(0.3, function() {
-			this.log("mine cb()")
 			var publicHead = this.blockchain.chainstate.head;
-			var privateHead = privateBlockchain.head;
+			var privateHead;
+			if (lead.length == 0) {
+				privateHead = publicHead;
+			} else {
+				privateHead = lead[lead.length - 1]
+			}
 
 			if (publicHead.h == privateHead.h) {
 				if (publicHead != privateHead) {
-					this.log("propagating entire lead")
+					this.log("propagating entire private chain (" + lead.length + " blocks)")
+
 					// We need to propagate our entire lead.
 					lead.forEach(function(b) {
-						this.inventory.relay(b.id);
+						this.inventory.relay(b.id, true);
+						this.blockchain.chainstate.enter(b, true);
 					}, this)
 
 					lead.length = 0;
 					state = 0;
-
-					// We also need to forcefully apply our private chainstate to the public one.
-					var cur = privateHead;
-					while (cur) {
-						if (this.blockchain.chainstate.enter(cur, true) != -1) {
-							break;
-						}
-
-						cur = cur._prev();
-					}
 				}
 			} else {
 				if (publicHead.h > privateHead.h) {
-					this.log("forcefully adopting chainstate")
-					// We're behind, just forcefully adopt the public chainstate.
+					this.log("adopting public chain")
+					lead.length = 0;
+					state = 0;
 
-					var cur = publicHead;
-					while (cur) {
-						// try adding to the chainstate until we succeed at some height
-						// the proceeding blocks will arrive from mapOrphans automatically
-						if (privateBlockchain.enter(cur) != -1) {
-							break;
-						}
-
-						lead.length = 0;
-						state = 0;
-
-						cur = cur._prev();
-					}
+					privateHead = publicHead;
 				} else if (privateHead.h > publicHead.h) {
 					// We're ahead, but by how much?
 
@@ -73,10 +57,10 @@ client.init(function() {
 							// We're ahead by one, for the first time, so we'll wait and see if we can catch a block.
 							state = 1;
 						} else {
-							this.log("propagating everything as we're close to losing our lead")
+							this.log("lead threatened; propagating entire private chain (" + lead.length + " blocks)")
 							// We're only ahead by one now. Let's just propagate everything.
 							lead.forEach(function(b) {
-								this.inventory.relay(b.id);
+								this.inventory.relay(b.id, true);
 								this.blockchain.chainstate.enter(b, true);
 							}, this)
 
@@ -91,13 +75,13 @@ client.init(function() {
 
 						lead.some(function(b) {
 							if (b.h < publicHead.h) {
+								this.inventory.relay(b.id, true);
 								this.blockchain.chainstate.enter(b);
-								this.inventory.relay(b.id);
 								spliceOut++;
 								return false;
 							} else if (b.h == publicHead.h) {
+								this.inventory.relay(b.id, true);
 								this.blockchain.chainstate.enter(b);
-								this.inventory.relay(b.id);
 								spliceOut++;
 								return true;
 							}
@@ -108,12 +92,10 @@ client.init(function() {
 
 						lead.splice(0, spliceOut);
 					}
-				} else {
-					console.log("SHOULD NOT HAPPEN")
 				}
 			}
 
-			var newb = new this.blockchain.Block(privateBlockchain.head, this.now(), this);
+			var newb = new this.blockchain.Block(privateHead, this.now(), this);
 
 			return newb;
 		})
@@ -124,16 +106,18 @@ client.init(function() {
 			// Don't relay block yet.
 			this.inventory.createObj("block", b)
 
-			// The miner succeeded in mining a block.
-			privateBlockchain.enter(b);
-
 			// Record the block.
 			lead.push(b);
 
 			return false; // hook the functionality of the blockchain
 		})
 	} else {
-		this.mine((1-0.3)/99)
+		if (this.id == 0) {
+			this.peermgr.maxpeers = 99;
+			this.mine(0.3);
+		}
+		else
+			this.mine((1-0.3)/99)
 	}
 })
 

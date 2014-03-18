@@ -137,14 +137,18 @@ function Inventory(self) {
 		self.peermgr.send(p, "invobj", o);
 	}
 
-	this.relay = function(name) {
+	this.relay = function(name, now) {
 		var ir = this.objects.get(name);
 
 		if ('relay' in ir) {
 			if (ir.relay(this.objects)) {
 				for (var p in this.tellPeer) {
-					this.addTick();
-					this.tellPeer[p][name] = ir.type;
+					if (now) {
+						this.__send_invobj(p, ir);
+					} else {
+						this.addTick();
+						this.tellPeer[p][name] = ir.type;
+					}
 				}
 			}
 		}

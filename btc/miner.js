@@ -61,7 +61,7 @@ function Miner(self) {
 		self.inventory.createObj("block", b)
 
 		if (self.blockchain.chainstate.enter(b) != -1) {
-			self.inventory.relay(b.id);
+			self.inventory.relay(b.id, true);
 		}
 	}, this)
 

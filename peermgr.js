@@ -71,7 +71,8 @@ function PeerMgr(self) {
 
 	this.each = function(cb) {
 		for (var p in this.peers) {
-			cb.call(self, p)
+			if (this.peers[p].active)
+				cb.call(self, p)
 		}
 	}
 

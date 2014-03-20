@@ -149,7 +149,6 @@ TransactionValidator.prototype = {
 	},
 
 	// apply a transaction to the state
-	// todo prevent duplicates?
 	apply: function(me) {
 		if (this.state != this.VALID) {
 			return false;
@@ -188,10 +187,6 @@ TransactionValidator.prototype = {
 };
 
 Transaction.prototype = {
-	STATE_NONE: 0,
-	STATE_UNSPENT: 2,
-	STATE_SPENT: 3,
-
 	in: function(n) {
 		return new TxIn(this, n);
 	},

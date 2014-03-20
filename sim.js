@@ -5,7 +5,7 @@
 var net = require("./network"),
     peermgr = require("./peermgr"),
     btc = require("./btc"),
-	client = new net.Node()
+	client = new net.Client()
 
 client.use(peermgr)
 client.use(btc)

@@ -19,10 +19,6 @@ function InventoryState(status) {
 }
 
 InventoryObject.prototype = {
-	STATE_NONE: 0,
-	STATE_SEEN: 1,
-	STATE_RELAY: 2,
-
 	init: function(consensus) {
 		consensus.add(this.id, this);
 	},

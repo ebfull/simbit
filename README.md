@@ -22,7 +22,7 @@ A boring simulation with 100 nodes looks something like this:
 
 ```javascript
 var net = require("./network")
-var client = new net.Node() // create a new node template
+var client = new net.Client() // create a new node template
 
 net.add(100, client); // instantiate 100 nodes using the client template
 net.run(100 * 1000); // runs for 100 seconds
@@ -37,7 +37,7 @@ mechanisms, latency simulation, peer discovery, buffering and more.
 ```javascript
 var net = require("./network"),
     peermgr = require("./peermgr") // include peermgr
-var client = new net.Node()
+var client = new net.Client()
 
 client.use(peermgr) // use the peermgr middleware
 
@@ -53,7 +53,7 @@ Let's have the client (randomly) select the maximum number of nodes it would lik
 ```javascript
 var net = require("./network"),
     peermgr = require("./peermgr")
-var client = new net.Node()
+var client = new net.Client()
 client.use(peermgr)
 
 client.init(function() {
@@ -138,7 +138,7 @@ var net = require("./network"),
     peermgr = require("./peermgr"),
     waster = require("./waster") // include our new middleware
 
-var client = new net.Node()
+var client = new net.Client()
 client.use(peermgr)
 client.use(waster) // use the middleware
 
@@ -162,10 +162,6 @@ client.init(function() {
 })
 ```
 
-### Visualizer
-
-(todo)
-
 API
 ---
 
@@ -175,15 +171,15 @@ API
 
 | Property | Description |
 | -------- | ----------- |
-| `.Node`    | A `Node` class used by `.add()` |
-| `.add (n, node)` | Creates `n` nodes, using `node` as a template. `node` is an instance of .Node |
+| `.Client`    | A `Client` class used by `.add()` |
+| `.add (n, client)` | Creates `n` nodes, using `client` as a template. `node` is an instance of .Client |
 | `.check (t, f)` | `f()` is called every `t` msec of simulation |
 | `.run (msec)` | Run `msec` worth of simulation time. |
 | `.stop()` | Stops the simulation, existing `.run` tasks will halt. |
 
-#### Node
+#### Client
 
-`var client = new net.Node()`
+`var client = new net.Client()`
 
 | Property | Description |
 | -------- | ----------- |
@@ -196,11 +192,110 @@ Functions like `.on()` or `.tick()` send the NodeState as function context to th
 
 | Property | Description |
 | -------- | ----------- |
-| `.on(name, f [, thisArg])` | Attaches a handler for event `name`. |
-| `.tick(t, f [, thisArg])` | Attaches a handler `f` for a tick event that occurs every `t` msec. If `f` returns false, the handler is unattached. |
+| `.on(name, f [, thisArg])` | Attaches a handler `f(from, msg)` for event `name`. If `f` returns false, the previously attached handler(s) by this `name` are bypassed. |
+| `.tick(t, f [, thisArg])` | Attaches a handler `f` for a tick event that occurs every `t` msec. If `f` returns false, the handler is unattached. If it returns an integer, the tick interval is changed to that integer. |
 | `.delay(t, f [, thisArg])` | `f` is called once, in `t` msec. |
 | `.prob(name, p, f [, thisArg])` | Attaches a handler `f` for a probabilistic tick event named `name`, which has a `p` chance of occuring every msec. |
 | `.deprob(name)` | Removes a probabilistic handler named `name`. |
 | `.now()` | Returns the current time, in msec, from the start of the simulation |
 | `.setColor(str)` | Sets the color of the current node to `str` |
 | `.log(str)` | Logs `str` for the node. |
+| `.setColor(str)` | Sets the color of the node to `str` within the visualizer |
+
+#### peermgr
+
+```javascript
+var net = require("./network"),
+    peermgr = require("./peermgr"), // include peermgr
+	client = new net.Client()
+
+client.use(peermgr) // use it
+```
+
+The peermgr middleware is stored in NodeState's `peermgr` property when it is used by the client.
+
+| Property | Description |
+| -------- | ----------- |
+| `this.peermgr.maxpeers` | Integer describing the maximum number of peers peermgr should attempt to connect to; best modified at initialization |
+| `this.peermgr.send(to, name, msg)` | Sends a message `msg` called `name` to peer number `to` |
+| `this.peermgr.each(cb)` | Iterates over all active peers by calling `cb(peerid)` with each peer id |
+| `this.peermgr.broadcast(name, msg)` | Broadcasts a message `msg` named `name` to all active peers |
+
+To handle messages remote nodes send you, use .on() like so:
+
+```javascript
+client.init(function() {
+	this.on("alert", function(from, obj) {
+		// received an alert from our peer!
+		// contents of message is in obj
+	})
+})
+```
+
+#### btc
+
+The `btc` middleware is being developed to simulate the bitcoin reference client.
+
+```javascript
+var net = require("./network"),
+    peermgr = require("./peermgr"),
+    btc = require("./btc"),
+	client = new net.Client()
+
+client.use(peermgr)
+client.use(btc)
+
+client.init(function() {
+	if (this.id == 0) {
+		var tx1 = this.transactions.create([], 1); // creates a transaction with no inputs (like a coinbase) and one output
+		var tx2 = this.transactions.create([tx1.in(0)], 1) // creates a transaction which spends the previous transaction
+
+		// Let's enter the transactions into our local UTXO:
+		this.transactions.enter(tx2) // this will appear in mapOrphans until we enter tx1
+		this.transactions.enter(tx1) // both tx1 and tx2 will be part of the UTXO now
+
+		// Now let's create inventory objects for these transactions:
+		this.inventory.createObj('tx', tx1)
+		this.inventory.createObj('tx', tx2)
+
+		this.delay(30000, function() {
+			// 30 seconds later, we could start relaying both transactions
+			this.inventory.relay(tx1.id)
+			this.inventory.relay(tx2.id)
+		})
+	}
+})
+
+net.add(100, client);
+net.run(200 * 1000)
+```
+
+A blockchain system already functions, performing reorgs, storing orphan blocks, and directing blocks to be relayed.
+
+A miner system is being developed:
+
+```javascript
+var net = require("./network"),
+    peermgr = require("./peermgr"),
+    btc = require("./btc"),
+	client = new net.Client()
+
+client.use(peermgr)
+client.use(btc)
+
+var left = 1; // mining resources left
+
+client.init(function() {
+	var myResources = Math.random() * left / 3;
+	left -= myResources;
+
+	this.mine(myResources)
+
+	this.on("miner:success", function(from, b) {
+		this.log("yay we mined a block (height=" + b.h + ")")
+	})
+});
+
+net.add(200, client)
+net.run(Infinity)
+```

@@ -46,7 +46,6 @@ function Miner(self) {
 
 		if (self.mprob) {
 			self.prob("mining", self.mprob / this.staged.difficulty, function() {
-				self.log("I MINED A BLOCK h=" + this.staged.h)
 				self.handle(-1, "miner:success", this.staged);
 
 				this.staged = this.mcb.call(self); // restage next block

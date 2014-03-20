@@ -95,7 +95,7 @@ function NodeMessageEvent(from, nid, name, obj) {
 	}
 }
 
-function NodeTickEvent(delay, nid, f, ctx) {
+function NodeTickEvent(delay, f, ctx) {
 	this.delay = delay;
 
 	this.run = function(network) {
@@ -177,7 +177,6 @@ NodeState.prototype = {
 	},
 
 	log: function(msg) {
-		return;
 		var str = "[" + this.now() + "]: " + this.id + ": " + msg;
 
 		if (this.network.visualizer) {
@@ -195,7 +194,7 @@ NodeState.prototype = {
 		if (typeof ctx == "undefined")
 			ctx = this;
 
-		this.network.exec(new NodeTickEvent(delay, this.id, f, ctx))
+		this.network.exec(new NodeTickEvent(delay, f, ctx))
 	},
 
 	send: function(nid, name, obj) {
@@ -214,7 +213,7 @@ NodeState.prototype = {
 
 		if (typeof this.handlers[name] != "undefined") {
 			var oldHandler = this.handlers[name];
-			this.handlers[name] = function(from, obj) {if (f.call(ctx, from, obj)) oldHandler.call(from, obj);}
+			this.handlers[name] = function(from, obj) {if (f.call(ctx, from, obj) !== false) oldHandler.call(ctx, from, obj);}
 		} else {
 			this.handlers[name] = function(from, obj) {return f.call(ctx, from, obj);};
 		}
@@ -225,12 +224,12 @@ NodeState.prototype = {
 	}
 }
 
-function Node() {
+function Client() {
 	this._use = [];
 	this._init = false;
 }
 
-Node.prototype = {
+Client.prototype = {
 	setup: function(node) {
 		// run middleware
 		for (var i=0;i<this._use.length;i++) {
@@ -382,12 +381,6 @@ function Network() {
 	this.now = 0;
 	this.maxrun = 0;
 
-	this.nextcheck = 0;
-	this.checkint = 0;
-	this.checkf = function() {
-
-	};
-
 	this.nodes = [];
 	this.nindex = 0;
 
@@ -395,7 +388,7 @@ function Network() {
 }
 
 Network.prototype = {
-	Node: Node,
+	Client: Client,
 	// random data
 	rand: function(name) {
 		return Consensus.prototype.rand();
@@ -501,33 +494,19 @@ Network.prototype = {
 			return;
 		}
 
-		var max = this.now + msec;
+		var max = Math.min(this.now + msec, this.maxrun);
 
 		// actually run msec worth of shit
 		while (e = this.events.next(max)) {
 			this.now = e.time;
-
-			if (this.checkint && (e.time > this.nextcheck)) {
-				this.nextcheck = e.time + this.checkint;
-				this.checkf.call(this);
-			}
-
-			this.now = e.time;
 			e.event.run(this)
-
-			if (this.now >= this.maxrun) {
-				return;
-			}
 		}
 
 		this.now = max;
 	},
 
-	// todo: allow for multiple check handlers, maybe turn checks into ticks
 	check: function(msec, f) {
-		this.nextcheck = this.now + msec;
-		this.checkint = msec;
-		this.checkf = f;
+		this.exec(new NodeTickEvent(msec, f, this))
 	},
 
 	stop: function() {

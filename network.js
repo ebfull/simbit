@@ -177,6 +177,7 @@ NodeState.prototype = {
 	},
 
 	log: function(msg) {
+		return;
 		var str = "[" + this.now() + "]: " + this.id + ": " + msg;
 
 		this.network.log(str)

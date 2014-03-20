@@ -2,12 +2,10 @@ function Miner(self) {
 	self.miner = this;
 
 	var updateDifficulty = function () {
-		if (self.miner.difficulty != self.miner.staged.difficulty) {
-			self.miner.difficulty = self.miner.staged.difficulty;
-			if (self.miner.enabled) {
-				self.miner.stopMining()
-				self.miner.startMining()
-			}
+		self.miner.difficulty = self.miner.staged.difficulty;
+		if (self.miner.enabled) {
+			self.miner.stopMining()
+			self.miner.startMining()
 		}
 	}
 
@@ -46,9 +44,9 @@ function Miner(self) {
 
 		if (self.mprob) {
 			self.prob("mining", self.mprob / this.staged.difficulty, function() {
+				self.log("Found a block at height " + this.staged.h)
 				self.handle(-1, "miner:success", this.staged);
 
-				this.staged = this.mcb.call(self); // restage next block
 				updateDifficulty();
 			}, this)
 		}

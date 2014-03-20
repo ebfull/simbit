@@ -296,17 +296,17 @@ function Blockchain(self) {
 		return new Chainstate(this.chainstate.head, self);
 	}
 
-	// When we receive a new block, either over the wire or by mining it, process it here.
+	// When we receive a new block over the wire, process it here.
 	this.onBlock = function(b) {
 		if (this.chainstate.enter(b) != -1) {
 			self.inventory.relay(b.id);
+			return true;
 		};
 	}
 
 	self.on("obj:block", function(from, o) {
-		this.onBlock(o);
-
-		self.handle(from, "blockchain:block", o);
+		if (this.onBlock(o))
+			self.handle(from, "blockchain:block", o);
 	}, this)
 }
 

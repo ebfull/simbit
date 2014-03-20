@@ -55,7 +55,6 @@ client.init(function() {
 						if (state == 0) {
 							this.log("ignoring 1 lead")
 							// We're ahead by one, for the first time, so we'll wait and see if we can catch a block.
-							state = 1;
 						} else {
 							this.log("lead threatened; propagating entire private chain (" + lead.length + " blocks)")
 							// We're only ahead by one now. Let's just propagate everything.
@@ -68,6 +67,7 @@ client.init(function() {
 							state = 0;
 						}
 					} else {
+						state = 1;
 						// We're ahead by more than one, let's propagate our lead blocks UNTIL we reach the public
 						// chainstate's head.
 

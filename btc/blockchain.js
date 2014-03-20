@@ -36,6 +36,14 @@ function Block(prev, time, miner) {
 	}
 }
 
+function PrevState(status) {
+	this.status = status;
+
+	this.equals = function(v) {
+		return (v.status == this.status)
+	}
+}
+
 var GenesisBlock = new Block(false, 0);
 
 Block.prototype = {
@@ -64,17 +72,11 @@ Block.prototype = {
 	},
 
 	addPrev: function(me) {
-		if (me.shift(me.xor(me.group.id, this.id)))
-			return;
-
-		me.set(this.id, {state:1})
+		me.set(this.id, new PrevState("set"))
 	},
 
 	rmPrev: function(me) {
-		if (me.shift(me.xor(me.group.id, this.id)))
-			return;
-
-		me.set(this.id, {state:0})
+		me.set(this.id, new PrevState("none"))
 	}
 }
 
@@ -88,7 +90,6 @@ MapOrphanBlocks.prototype = {
 		if (this.mapOrphans.indexOf(b) != -1)
 			return false;
 
-		// max size is 10
 		if (this.mapOrphans.length == 100) {
 			this.delete(this.mapOrphans[0]);
 		}
@@ -142,7 +143,7 @@ var GenesisBlock = new Block(false, 0);
 function Chainstate(head, self) {
 	this.self = self;
 
-	this.prevs = self.network.shared("chainstate_prevs").obtain();
+	this.prevs = self.network.shared("chainstate_prevs");
 
 	this.mapOrphans = new MapOrphanBlocks(self);
 
@@ -208,7 +209,7 @@ Chainstate.prototype = {
 
 		while(true) {
 			var curprev = this.prevs.get(cur.id);
-			if (curprev.state == 1) {
+			if (curprev.status == "set") {
 				var bestOrphanPath = this.getOrphanWorkPath(cur)
 				if ((force && bestOrphanPath.work >= this.head.work) || bestOrphanPath.work > this.head.work) {
 					//console.log(this.self.id + ": adopting orphan chain of (w=" + bestOrphanPath.work + " vs. local " + this.head.work + ")")
@@ -237,7 +238,7 @@ Chainstate.prototype = {
 
 		var bprev = this.prevs.get(block._prev().id)
 
-		if (bprev.state == 0) {
+		if (bprev.status == "none") {
 			// this block's prev doesn't exist, it's an orphan!
 			if (!doingReorg)
 				return this.reorg(block, -1, force)

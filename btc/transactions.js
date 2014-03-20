@@ -25,6 +25,103 @@ function Transaction(id, inputs, n) {
 	}
 }
 
+function MapOrphanTransactions(self) {
+	this.mapOrphans = [];
+	this.mapOrphansByPrev = {};
+}
+
+MapOrphanTransactions.prototype = {
+	add: function(b) {
+		if (this.mapOrphans.indexOf(b) != -1)
+			return false;
+
+		if (this.mapOrphans.length == 100) {
+			this.delete(this.mapOrphans[0]);
+		}
+
+		this.mapOrphans.push(b);
+
+		b.vin.forEach(function(input) {
+			if (!(input.k in this.mapOrphansByPrev))
+				this.mapOrphansByPrev[input.k] = []
+
+			this.mapOrphansByPrev[input.k].push(b)
+		}, this)
+
+		return true;
+	},
+
+	delete: function(b) {
+		if (this.mapOrphans.indexOf(b) == -1)
+			return false;
+
+		var removed = this.mapOrphans.splice(this.mapOrphans.indexOf(b), 1)
+
+		b.vin.forEach(function(input) {
+			var m = this.mapOrphansByPrev[input.k];
+
+			m.splice(m.indexOf(b), 1);
+
+			if (m.length == 0) {
+				delete this.mapOrphansByPrev[input.k]
+			}
+		}, this)
+
+		return true;
+	},
+
+	// returns boolean whether the block is an orphan already
+	is: function(b) {
+		if (this.mapOrphans.indexOf(b) == -1)
+			return false;
+
+		return true;
+	},
+
+	// finds any blocks that depended on this block within this maporphans
+	getForPrev: function(prev) {
+		var ret = [];
+
+		prev.vout.forEach(function(output) {
+			if (output.k in this.mapOrphansByPrev) {
+				ret = ret.concat(this.mapOrphansByPrev[output.k]);
+			}
+		}, this)
+
+		return ret;
+	}
+}
+
+function TransactionState(status, spentBy, spentByN) {
+	this.status = status;
+	this.spentBy = spentBy;
+	this.spentByN = spentByN;
+
+	this.equals = function(v) {
+		switch (v.status) {
+			case "spent":
+				if (this.status == "spent") {
+					if ('spentBy' in v) {
+						if (this.spentBy == v.spentBy) {
+							if ('spentByN' in v) {
+								if (this.spentByN == v.spentByN) {
+									return true;
+								}
+							}
+						}
+					}
+				}
+			break;
+			default:
+				if (v.status == this.status)
+					return true;
+			break;
+		}
+
+		return false;
+	}
+}
+
 // Transaction validator:
 function TransactionValidator(tx) {
 	this.tx = tx;
@@ -51,28 +148,12 @@ TransactionValidator.prototype = {
 		this.conflicts = newConflicts;
 	},
 
-	id: function(me) {
-		var cur = me.group.id;
-
-		cur = me.xor(cur, this.tx.id);
-
-		this.conflicts.forEach(function(c) {
-			cur = me.xor(cur, c.id);
-		})
-
-		return cur;
-	},
-
 	// apply a transaction to the state
 	// todo prevent duplicates?
 	apply: function(me) {
 		if (this.state != this.VALID) {
 			return false;
 		}
-
-		// let's move to a new state group
-		if (me.shift(this.id(me)))
-			return; // using cached shift
 
 		// remove all conflicting transactions
 		this.conflicts.forEach(function(ctx) {
@@ -83,23 +164,19 @@ TransactionValidator.prototype = {
 		var spentByN = 0;
 
 		this.tx.vin.forEach(function(input) {
-			me.set(input.k, {state:this.tx.STATE_SPENT, spentBy: this.tx, spentByN: spentByN})
+			me.set(input.k, new TransactionState("spent", this.tx, spentByN))
 			spentByN++;
 		}, this);
 
 		// Now, set our outputs as unspent...
 		this.tx.vout.forEach(function(output) {
-			me.set(output.k, {state:this.tx.STATE_UNSPENT});
+			me.set(output.k, new TransactionState("unspent"))
 		}, this);
 	},
 
 	unapply: function(me) {
 		if (this.state != this.VALID)
 			return false;
-
-		// move to a new state group
-		if (me.shift(this.id(me)))
-			return; // using cached shift
 
 		// remove child transactions
 		this.conflicts.forEach(function(ctx) {
@@ -137,13 +214,13 @@ Transaction.prototype = {
 
 			var ir = me.get(input.k);
 
-			switch (ir.state) {
-				case this.STATE_NONE:
+			switch (ir.status) {
+				case "none":
 					if (fin.state == fin.DEFAULT) {
 						fin.state = fin.ORPHAN; // This input is not in our UTXO.
 					}
 				break;
-				case this.STATE_SPENT:
+				case "spent":
 					if (fin.state < fin.INVALID) {
 						fin.state = fin.CONFLICT; // This input has been spent, and so this tx conflicts with another.
 
@@ -176,7 +253,7 @@ Transaction.prototype = {
 		this.vin.forEach(function(input) {
 			var ir = me.get(input.k);
 
-			if ((ir.state != this.STATE_SPENT) || (ir.spentBy != this)) {
+			if ((ir.status != "spent") || (ir.spentBy != this)) {
 				fault = true;
 			}
 		}, this)
@@ -189,7 +266,7 @@ Transaction.prototype = {
 		this.vout.forEach(function(output) {
 			var ir = me.get(output.k);
 
-			if (ir.state == this.STATE_SPENT) {
+			if (ir.status == "spent") {
 				var sub = ir.spentBy.invalidate(me);
 
 				fin.conflicts.concat(sub.conflicts);
@@ -205,61 +282,25 @@ Transaction.prototype = {
 	remove: function(me) {
 		// delete all outputs
 		this.vout.forEach(function(output) {
-			me.set(output.k, {state:this.STATE_NONE});
+			me.set(output.k, new TransactionState("none"))
 		}, this);
 
 		// set all inputs as unspent (if they weren't already purged)
 		this.vin.forEach(function(input) {
 			var cir = me.get(input.k)
 
-			if (cir.state == this.STATE_SPENT)
-				me.set(input.k, {state:this.STATE_UNSPENT});
+			if (cir.status == "spent")
+				me.set(input.k, new TransactionState("unspent"));
 
 		}, this);
 	},
-
-	// NO VALIDATION OF DUPLICATES
-	// todo: purge old orphans, how??
-	orphan: function(me) {
-		if (me.shift(me.xor(me.group.id, this.id)))
-			return;
-
-		this.vin.forEach(function(input) {
-			var cur = me.get(input.k)
-
-			var children = [];
-
-			if (cur.state != 0) {
-				children = cur.children;
-			}
-
-			children.push(this)
-
-			me.set(input.k, {state:1, children:children})
-		}, this)
-	},
-
-	unorphan: function(me) {
-		if (me.shift(me.xor(me.group.id, this.id)))
-			return;
-
-		this.vin.forEach(function(input) {
-			var cur = me.get(input.k)
-
-			children = cur.children;
-
-			children.splice(children.indexOf(this), 1);
-
-			me.set(input.k, {state:1, children:children})
-		}, this)
-	}
 };
 
 function Transactions(self) {
 	self.transactions = this;
 
-	this.UTXO = self.network.shared("UTXO").obtain();
-	this.mapOrphans = self.network.shared("mapOrphans").obtain();
+	this.UTXO = self.network.shared("UTXO");
+	this.mapOrphans = new MapOrphanTransactions(self);
 
 	this.create = function(inputs, n) {
 		var nid = this.UTXO.rand();
@@ -275,19 +316,13 @@ function Transactions(self) {
 	this.processOrphans = function(tx) {
 		// find any tx in mapOrphans which spends from our TxOuts
 
-		// todo: maybe move this to Transaction
-		tx.vout.forEach(function(output) {
-			var cur = this.mapOrphans.get(output.k);
+		var descend = this.mapOrphans.getForPrev(tx);
 
-			if ((cur.state != 0) && (cur.children.length > 0)) {
-				cur.children.forEach(function(childOrphan) {
-					if (this.enter(childOrphan)) {
-						self.log("removed tx from mapOrphans")
-						self.inventory.relay(childOrphan.id)
-						childOrphan.unorphan(this.mapOrphans)
-						this.processOrphans(childOrphan)
-					}
-				}, this)
+		descend.forEach(function(sub) {
+			if (this.mapOrphans.is(sub) && this.enter(sub)) {
+				self.log("removed tx from mapOrphans")
+				self.inventory.relay(sub.id)
+				this.processOrphans(sub)
 			}
 		}, this)
 	}
@@ -306,7 +341,7 @@ function Transactions(self) {
 				return false;
 			break;
 			case val.ORPHAN:
-				tx.orphan(this.mapOrphans);
+				this.mapOrphans.add(tx);
 				self.log("rejected tx, added to mapOrphans")
 				return false;
 			break;

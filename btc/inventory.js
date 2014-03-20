@@ -10,6 +10,14 @@ function InventoryObject(type, obj) {
 	this.id = obj.id;
 }
 
+function InventoryState(status) {
+	this.status = status;
+
+	this.equals = function(v) {
+		return this.status == v.status;
+	}
+}
+
 InventoryObject.prototype = {
 	STATE_NONE: 0,
 	STATE_SEEN: 1,
@@ -22,12 +30,8 @@ InventoryObject.prototype = {
 	seen: function(me) {
 		var ir = me.get(this.id);
 
-		if (ir.state == this.STATE_NONE) {
-			var nid = me.xor(me.group.id, this.id);
-			if (me.shift(nid))
-				return true;
-
-			me.set(this.id, {state:this.STATE_SEEN})
+		if (ir.status == "none") {
+			me.set(this.id, new InventoryState("seen"))
 
 			return true;
 		}
@@ -38,13 +42,8 @@ InventoryObject.prototype = {
 	relay: function(me) {
 		var ir = me.get(this.id);
 
-		if (ir.state == this.STATE_SEEN) {
-			var nid = me.xor(me.group.id, this.id); // remove STATE_SEEN from the state
-			nid = me.xor(nid, me.rot(this.id, 1)) // STATE_RELAY is a bitwise rotation left of STATE_SEEN
-			if (me.shift(nid))
-				return true;
-
-			me.set(this.id, {state:this.STATE_RELAY})
+		if (ir.status == "seen") {
+			me.set(this.id, new InventoryState("relay"))
 
 			return true;
 		}
@@ -58,7 +57,7 @@ function Inventory(self) {
 
 	this.polling = false;
 
-	this.objects = self.network.shared("inventory").obtain();
+	this.objects = self.network.shared("inventory");
 
 	this.peerHas = {};
 	this.tellPeer = {};
@@ -157,10 +156,10 @@ function Inventory(self) {
 	this.getObj = function(name, mustRelay) {
 		var ir = this.objects.get(name);
 
-		if (ir.state == ir.STATE_NONE)
+		if (ir.status == "none")
 			return false;
 
-		if (mustRelay && ir.state == ir.STATE_SEEN)
+		if (mustRelay && ir.status == "seen")
 			return false;
 
 		return ir.__proto__;
@@ -216,14 +215,7 @@ function Inventory(self) {
 	}
 
 	this.addObj = function(obj) {
-		var ir = this.objects.get(obj.id);
-		if (ir.state == ir.STATE_NONE) {
-			obj.seen(this.objects);
-
-			return true;
-		}
-
-		return false;
+		return obj.seen(this.objects);
 	}
 
 	// obj must have `name` property

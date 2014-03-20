@@ -176,6 +176,7 @@ API
 | `.check (t, f)` | `f()` is called every `t` msec of simulation |
 | `.run (msec)` | Run `msec` worth of simulation time. |
 | `.stop()` | Stops the simulation, existing `.run` tasks will halt. |
+| `.log(str)` | Logs `str` to console or to the visualizer |
 
 #### Client
 

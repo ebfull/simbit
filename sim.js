@@ -137,6 +137,6 @@ net.check(10000 * 1000, function() {
 		cur = cur._prev();
 	}
 
-	net.visualizer.log("Attacker revenue: " + ((attackerRevenue / totalH) * 100).toFixed(2) + "; h=" + totalH)
+	net.log("Attacker revenue: " + ((attackerRevenue / totalH) * 100).toFixed(2) + "; h=" + totalH)
 })
 net.run(Infinity)

@@ -179,11 +179,7 @@ NodeState.prototype = {
 	log: function(msg) {
 		var str = "[" + this.now() + "]: " + this.id + ": " + msg;
 
-		if (this.network.visualizer) {
-			this.network.visualizer.log(str)
-		} else {
-			console.log(str)
-		}
+		this.network.log(str)
 	},
 
 	now: function() {
@@ -402,6 +398,13 @@ Network.prototype = {
 		return this._shared[name].obtain();
 	},
 
+	log: function(str) {
+		if (this.visualizer)
+			this.visualizer.log(str)
+		else
+			console.log(str)
+	},
+
 	// registers probablistic event
 	pregister: function(label, p, nid, cb, ctx) {
 		if (typeof this.pevents[nid + "-" + label] == "undefined") {
@@ -471,7 +474,7 @@ Network.prototype = {
 	run: function(msec, next) {
 		this.maxrun = this.now + msec;
 
-		if (DELAY_RUN) {
+		if (typeof(DELAY_RUN) != "undefined") {
 			// this is an async call
 			DELAY_RUN.net = this;
 			DELAY_RUN.cb = next;

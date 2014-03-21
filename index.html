@@ -5,6 +5,10 @@
 		<title>simbit</title>
 		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
 		<style>
+		body {
+			font: 10px sans-serif;	
+		}
+
 			.network {
 			  border: 1px solid #DEDEDE;
 			  display:block;
@@ -61,8 +65,13 @@
 					&nbsp;&nbsp;<span id="relspeed">(1.00x)</span>
 					</div>
 				</td>
-				<td valign="top">
-
+				<td id="timeBetweenBlocks" style="display:none" valign="top">
+					<center>
+					<h1>time between each block</h1>
+					</center>
+					<div class='scatter'>
+			          <!-- /the chart goes here -->
+			        </div>
 				</td>
 			</tr>
 		</table>
@@ -98,6 +107,79 @@
 				charge: -150,
 				gravity: .5,
 
+				drawScatter: function(data) {
+					var maxy = d3.max(data, function(d) { return d[1]; })
+					var maxx = d3.max(data, function(d) { return d[0]; })
+
+					var margin = {top: 20, right: 15, bottom: 60, left: 60}
+				      , width = 500 - margin.left - margin.right
+				      , height = 300 - margin.top - margin.bottom;
+				    
+				    var x = d3.scale.linear()
+				              .domain([0, 1200])
+				              .range([ 0, width]);
+				    
+				    var y = d3.scale.linear()
+				            .domain([0, maxy])
+				            .range([ height, 0 ]);
+
+				     $("#timeBetweenBlocks").css('display', 'block')
+				     $(".scatter").html("")
+
+				    var chart = d3.select('.scatter')
+				  .append('svg:svg')
+				  .attr('width', width + margin.right + margin.left)
+				  .attr('height', height + margin.top + margin.bottom)
+				  .attr('class', 'chart')
+
+				    var main = chart.append('g')
+				  .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')')
+				  .attr('width', width)
+				  .attr('height', height)
+				  .attr('class', 'main')   
+				        
+				    // draw the x axis
+				    var xAxis = d3.svg.axis()
+				  .scale(x)
+				  .orient('bottom');
+
+				    main.append('g')
+				  .attr('transform', 'translate(0,' + height + ')')
+				  .attr('class', 'main axis date')
+				  .call(xAxis)
+				  .append("text")
+				  .attr("dx", ".71em")
+				  .attr("x", 420)
+				  .attr("y", -6)
+				  .style("text-anchor", "end")
+				  .text("Time between blocks (in seconds)");
+
+				    // draw the y axis
+				    var yAxis = d3.svg.axis()
+				  .scale(y)
+				  .orient('left');
+
+				    main.append('g')
+				  .attr('transform', 'translate(0,0)')
+				  .attr('class', 'main axis date')
+				  .call(yAxis)
+				  .append("text")
+				  .attr("transform", "rotate(-90)")
+				  .attr("y", 6)
+				  .attr("dy", ".71em")
+				  .style("text-anchor", "end")
+				  .text("Blocks");
+
+				    var g = main.append("svg:g"); 
+				    
+				    g.selectAll("scatter-dots")
+				      .data(data)
+				      .enter().append("svg:circle")
+				          .attr("cx", function (d,i) { return x(d[0]); } )
+				          .attr("cy", function (d) { return y(d[1]); } )
+				          .attr("r", 2);
+				},
+
 				init: function() {
 					// init the network layout/svg
 					$(this.divname).css('width', this.width);
@@ -132,7 +214,7 @@
 
 				log: function(msg) {
 					this.lastmsgs.push(msg);
-					if (this.lastmsgs.length > 20)
+					if (this.lastmsgs.length > 35)
 						this.lastmsgs.shift();
 
 					var newlogs = "";

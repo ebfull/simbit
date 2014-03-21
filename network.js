@@ -120,7 +120,7 @@ binary heap.
 ****/
 function NodeProbabilisticTickEvent(probability, event, nid, ctx) {
 	// The event will occur in this.delay msec
-	this.delay = Math.floor((Math.log(1-Math.random())/-1) * (1 / (probability)));
+	this.delay = Math.floor(Math.log(1.0-Math.random())/-probability);
 	this.ignore = false;
 
 	this.run = function(network) {
@@ -132,12 +132,6 @@ function NodeProbabilisticTickEvent(probability, event, nid, ctx) {
 
 		// fire event
 		event.call(ctx)
-
-		// new delay
-		this.delay = Math.floor((Math.log(1-Math.random())/-1) * (1 / (probability)));
-
-		// create next event
-		network.exec(this, "probs")
 	}
 }
 

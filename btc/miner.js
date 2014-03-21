@@ -1,7 +1,7 @@
 function Miner(self) {
 	self.miner = this;
 
-	var updateDifficulty = function () {
+	var restage = function () {
 		self.miner.difficulty = self.miner.staged.difficulty;
 		if (self.miner.enabled) {
 			self.miner.stopMining()
@@ -47,7 +47,7 @@ function Miner(self) {
 				self.log("Found a block at height " + this.staged.h)
 				self.handle(-1, "miner:success", this.staged);
 
-				updateDifficulty();
+				restage();
 			}, this)
 		}
 	}
@@ -63,8 +63,7 @@ function Miner(self) {
 	}, this)
 
 	self.on("blockchain:block", function(from, b) {
-		this.staged = this.mcb.call(self); // restage next block
-		updateDifficulty();
+		restage();
 	}, this)
 }
 

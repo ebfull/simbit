@@ -45,7 +45,11 @@
 	<body>
 		<table>
 			<tr>
-				<td>
+				<td id="networkparent">
+					<div style="float:right">
+						<input id="disable" type="button" value="Disable Visualizer">
+					</div>
+					<div style="clear:both"></div>
 					<div class="network" style="width: 700px; height: 500px"></div>
 				</td>
 				<td id="logs" valign="top">
@@ -363,7 +367,7 @@
 					this.snode = this.snode.data(this.force.nodes(), function(d) {return d.id;});
 					this.snode.enter().append("circle").attr("class", function (d) {return "node " + d.id;})
 						.attr("r", 3)
-						.call(this.force.drag);
+					//	.call(this.force.drag);
 					this.snode.exit().remove();
 
 					this.force.start();
@@ -402,6 +406,11 @@
 			$("#defaultspeed").click(function() {
 				amt = 10;
 				$("#relspeed").html("(" + (amt / 10).toFixed(2) + "x)");
+			})
+
+			$("#disable").click(function() {
+				VISUALIZER.rehash = function() {return;}
+				VISUALIZER.force.stop();
 			})
 
 			setInterval(function() {

@@ -13,8 +13,8 @@ client.use(btc)
 var selfishHashrate = 0.3;
 
 client.init(function() {
-	//if (this.id == 0) { // node 0 is the selfish miner
-	if (false) {
+	if (this.id == 0) { // node 0 is the selfish miner
+	//if (false) {
 		this.peermgr.maxpeers = 99;
 		var lead = [];
 		var state = 0;
@@ -175,7 +175,7 @@ net.check(15000 * 1000, function() {
 	}
 
 	net.visualizer.drawScatter(data);
-
+/*
 	// calculate the average
 	var mean = 0;
 	arrTimeSince.forEach(function(n) {
@@ -194,5 +194,6 @@ net.check(15000 * 1000, function() {
 	var stddev = Math.sqrt(variance);
 
 	net.log("time between blocks: mean = " + (mean/1000).toFixed(2) + " seconds; stddev = " + (stddev/1000).toFixed(2) + ' seconds');
+*/
 })
 net.run(Infinity)

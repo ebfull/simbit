@@ -58,7 +58,7 @@ client.use(peermgr)
 
 client.init(function() {
 	// this function is called when a node is initialized
-	this.peermgr.maxpeers = Math.random() * 20 + 8;
+	this.peermgr.maxpeers = Math.floor(Math.random() * 20) + 8;
 })
 
 net.add(100, client)

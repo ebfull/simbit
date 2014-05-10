@@ -54,6 +54,7 @@ function Miner(self) {
 
 	self.on("miner:success", function(from, b) {
 		b.time = self.now();
+		b.transactions = self.mempool.getList();
 
 		self.inventory.createObj("block", b)
 

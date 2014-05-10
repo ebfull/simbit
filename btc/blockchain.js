@@ -8,8 +8,12 @@ var color_i = 0;
 function Block(prev, time, miner) {
 	this.__prev = prev;
 
-	if (miner)
+	this.transactions = [];
+
+	if (miner) {
 		this.credit = miner.id;
+		this.transactions = miner.mempool.getList();
+	}
 	else
 		this.credit = false;
 
@@ -154,6 +158,14 @@ Chainstate.prototype = {
 	forward: function(b) {
 		this.self.setColor(b.color)
 		this.head = b
+
+		this.head.transactions.forEach(function(tx) {
+			// transaction _must_ be entered into UTXO to advance to this state
+			this.self.transactions.enter(tx, true);
+
+			// transaction must be removed from mempool
+			this.self.mempool.remove(tx);
+		}, this);
 		
 		b.addPrev(this.prevs);
 
@@ -161,6 +173,11 @@ Chainstate.prototype = {
 			this.self.inventory.relay(this.head.id);
 	},
 	reverse: function() {
+		this.head.transactions.forEach(function(tx) {
+			// transaction must be added back to mempool
+			this.self.mempool.add(tx);
+		}, this);
+
 		this.mapOrphans.add(this.head)
 
 		this.head.rmPrev(this.prevs);

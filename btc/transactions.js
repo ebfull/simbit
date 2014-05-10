@@ -154,9 +154,13 @@ TransactionValidator.prototype = {
 			return false;
 		}
 
+		var removed = [];
+		var added = [];
+
 		// remove all conflicting transactions
 		this.conflicts.forEach(function(ctx) {
 			ctx.remove(me);
+			removed.push(ctx);
 		}, this)
 
 		// Now, spend our inputs...
@@ -171,18 +175,29 @@ TransactionValidator.prototype = {
 		this.tx.vout.forEach(function(output) {
 			me.set(output.k, new TransactionState("unspent"))
 		}, this);
+
+		added.push(this.tx);
+
+		return {added:added, removed:removed};
 	},
 
 	unapply: function(me) {
 		if (this.state != this.VALID)
 			return false;
 
+		var removed = [];
+
 		// remove child transactions
 		this.conflicts.forEach(function(ctx) {
 			ctx.remove(me);
+			removed.push(ctx);
 		}, this)
 
 		this.tx.remove(me);
+
+		removed.push(this.tx);
+
+		return {added:[], removed:removed};
 	}
 };
 
@@ -307,6 +322,16 @@ function Transactions(self) {
 		return tx;
 	}
 
+	// updates the mempool given a delta of transactions added or removed from the UTXO
+	this.updateMempool = function(delta) {
+		delta.added.forEach(function(addTx) {
+			self.mempool.add(addTx);
+		})
+		delta.removed.forEach(function(removeTx) {
+			self.mempool.remove(removeTx);
+		})
+	}
+
 	// tries to add transactions which this tx may have 
 	this.processOrphans = function(tx) {
 		// find any tx in mapOrphans which spends from our TxOuts
@@ -345,7 +370,8 @@ function Transactions(self) {
 				return false;
 			break;
 			case val.VALID:
-				val.apply(this.UTXO); // add to UTXO
+				var delta = val.apply(this.UTXO); // add to UTXO
+				this.updateMempool(delta);
 				this.processOrphans(tx);
 				return true;
 			break;

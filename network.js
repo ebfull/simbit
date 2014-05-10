@@ -171,7 +171,6 @@ NodeState.prototype = {
 	},
 
 	log: function(msg) {
-		return;
 		var str = "[" + this.now() + "]: " + this.id + ": " + msg;
 
 		this.network.log(str)
@@ -260,7 +259,8 @@ function LocalizedState(consensus) {
 
 Consensus.prototype = {
 	add: function(key, obj) {
-		this.store[key] = {obj:obj, states:[]};
+		if (!(key in this.store))
+			this.store[key] = {obj:obj, states:[]};
 	},
 	obtain: function() {
 		return new LocalizedState(this);
@@ -350,6 +350,21 @@ LocalizedState.prototype = {
 			this.set(k, gen);
 			return gen;
 		}
+	},
+	find: function(v) {
+		// TODO: improve efficiency of this by indexing states -> objects
+
+		var results = [];
+
+		for (k in this.consensus.store) {
+			var state = this.get(k);
+
+			if (state.equals(v)) {
+				results.push(state.__proto__);
+			}
+		}
+
+		return results;
 	},
 	create: function(obj) {
 		return obj.init(this.consensus);

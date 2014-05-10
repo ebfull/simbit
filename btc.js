@@ -4,10 +4,15 @@ var Transactions = require("./btc/transactions.js")
 var Blockchain = require("./btc/blockchain.js")
 var Miner = require("./btc/miner.js")
 
-module.exports = function(self) {
+var btc = function(self) {
 	new Inventory(self);
 	new Mempool(self);
 	new Transactions(self);
 	new Blockchain(self);
 	new Miner(self);
-}
+};
+
+
+btc.Blockchain = Blockchain.prototype;
+
+module.exports = btc;

@@ -32,7 +32,11 @@ function Block(prev, time, miner) {
 		}
 	}
 	else {
-		this.id = String.fromCharCode(252, 124, 195, 233, 126, 94, 182, 200, 23, 107, 236, 43, 77, 137);
+		//this.id = String.fromCharCode(252, 124, 195, 233, 126, 94, 182, 200, 23, 107, 236, 43, 77, 137);
+		this.id = 'xxxxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+		    var r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
+		    return v.toString(16);
+		});
 		this.h = 0;
 		this.prev = false;
 		this.difficulty = 600000;
@@ -69,7 +73,7 @@ Block.prototype = {
 		var old = this.difficulty;
 		this.difficulty *= this.target_avg_between_blocks / avg;
 
-		//console.log("(h=" + this.h + ") difficulty adjustment " + (this.target_avg_between_blocks / avg) + "x")
+		console.log("(h=" + this.h + ") difficulty adjustment " + (this.target_avg_between_blocks / avg) + "x")
 	},
 	_prev: function() {
 		return this.__prev;
@@ -328,7 +332,8 @@ function Blockchain(self) {
 }
 
 Blockchain.prototype = {
-	Block: Block
+	Block: Block,
+	GenesisBlock: GenesisBlock
 }
 
 module.exports = Blockchain;

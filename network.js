@@ -266,7 +266,7 @@ Consensus.prototype = {
 		return new LocalizedState(this);
 	},
 	rand: function() {
-		return String.fromCharCode(
+		/*return String.fromCharCode(
 			Math.floor(Math.random() * 256),
 			Math.floor(Math.random() * 256),
 			Math.floor(Math.random() * 256),
@@ -282,7 +282,11 @@ Consensus.prototype = {
 			Math.floor(Math.random() * 256),
 			Math.floor(Math.random() * 256),
 			Math.floor(Math.random() * 256)
-			)
+			)*/
+		return 'xxxxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+		    var r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
+		    return v.toString(16);
+		});
 	}
 };
 

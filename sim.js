@@ -143,57 +143,58 @@ net.check(10000 * 1000, function() {
 
 	net.log("Node 0 revenue: " + ((attackerRevenue / totalH) * 100).toFixed(2) + "%, " + perHour + " per hour; h=" + totalH + "; t=" + net.now + " msec")
 })
+if (net.visualizer) {
+	net.check(15000 * 1000, function() {
+		var arrTimeSince = [];
 
-net.check(15000 * 1000, function() {
-	var arrTimeSince = [];
+		var mapBucket = {};
+		var cur = net.nodes[90].blockchain.chainstate.head;
 
-	var mapBucket = {};
-	var cur = net.nodes[90].blockchain.chainstate.head;
+		var last = -1;
+		while (cur) {
+			if (last >= 0) {
+				arrTimeSince.push(last - cur.time)
 
-	var last = -1;
-	while (cur) {
-		if (last >= 0) {
-			arrTimeSince.push(last - cur.time)
+				var timeSince = Math.floor(((last - cur.time)/1000) / 20); // buckets of 20 seconds
 
-			var timeSince = Math.floor(((last - cur.time)/1000) / 20); // buckets of 20 seconds
+				if (!(timeSince in mapBucket)) {
+					mapBucket[timeSince] = 0;
+				}
 
-			if (!(timeSince in mapBucket)) {
-				mapBucket[timeSince] = 0;
+				mapBucket[timeSince]++;
 			}
 
-			mapBucket[timeSince]++;
+			last = cur.time;
+			cur = cur._prev();
 		}
 
-		last = cur.time;
-		cur = cur._prev();
-	}
+		var data = [];
 
-	var data = [];
+		for (i in mapBucket) {
+			data.push([i*20,mapBucket[i]])
+		}
 
-	for (i in mapBucket) {
-		data.push([i*20,mapBucket[i]])
-	}
+		net.visualizer.drawScatter(data);
+	/*
+		// calculate the average
+		var mean = 0;
+		arrTimeSince.forEach(function(n) {
+			mean+=n;
+		})
+		mean /= arrTimeSince.length;
 
-	net.visualizer.drawScatter(data);
-/*
-	// calculate the average
-	var mean = 0;
-	arrTimeSince.forEach(function(n) {
-		mean+=n;
+		// calculate variance
+		var variance = 0;
+		arrTimeSince.forEach(function(n) {
+			variance += Math.pow((n - mean), 2);
+		})
+		variance /= arrTimeSince.length;
+
+		// calculate stddev
+		var stddev = Math.sqrt(variance);
+
+		net.log("time between blocks: mean = " + (mean/1000).toFixed(2) + " seconds; stddev = " + (stddev/1000).toFixed(2) + ' seconds');
+	*/
 	})
-	mean /= arrTimeSince.length;
-
-	// calculate variance
-	var variance = 0;
-	arrTimeSince.forEach(function(n) {
-		variance += Math.pow((n - mean), 2);
-	})
-	variance /= arrTimeSince.length;
-
-	// calculate stddev
-	var stddev = Math.sqrt(variance);
-
-	net.log("time between blocks: mean = " + (mean/1000).toFixed(2) + " seconds; stddev = " + (stddev/1000).toFixed(2) + ' seconds');
-*/
-})
+}
 net.run(Infinity)

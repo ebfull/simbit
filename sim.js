@@ -1,5 +1,5 @@
 /*
-	Selfish Mining Attack Simulation
+	Simple Transaction Propagation test in Blocks
 */
 
 var net = require("./network"),

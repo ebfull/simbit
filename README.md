@@ -65,7 +65,7 @@ net.add(100, client)
 net.run(100 * 1000)
 ```
 
-### Tick events
+### Events
 
 Tick events are events that occur to clients at some interval of time. `peermgr` will already use ticks to space out 
 connection and discovery attempts until it reaches maxpeers. We can use ticks ourselves like this:
@@ -80,12 +80,25 @@ client.init(function() {
 })
 ```
 
-Probabilistic tick events have a non-zero chance of occuring at any msec; uses an exponential distribution for discrete event simulation:
+Delayed events are 'one shot' events that occur after a specified amount of time:
+```javascript
+client.init(function() {
+	this.delay(3000, function() {
+		// this will fire in 3 seconds
+	})
+})
+```
+
+Probabilistic events are like delayed events, in that they are one shot events, except that the time until the event is
+fired is exponentially distributed for discrete event simulation. This is useful for simulating bitcoin mining, for
+example.
 
 ```javascript
 client.init(function() {
-	this.prob("mining", (1/3000), function() {
-		// we can expect this function to be called, on average, every 3000 msec
+	this.prob("heartbeat", (1/1000), function() {
+		// We can expect this function to fire in 1000msec on average.
+
+		this.log('wheeeeeeeeee')
 	})
 })
 ```
@@ -174,8 +187,8 @@ API
 | `.Client`    | A `Client` class used by `.add()` |
 | `.add (n, client)` | Creates `n` nodes, using `client` as a template. `node` is an instance of .Client |
 | `.check (t, f)` | `f()` is called every `t` msec of simulation |
-| `.run (msec)` | Run `msec` worth of simulation time. |
-| `.stop()` | Stops the simulation, existing `.run` tasks will halt. |
+| `.run (msec [, next])` | Run `msec` worth of simulation time. next is an optional callback after run completes. |
+| `.stop()` | Stops the simulation, existing `.run` tasks will end. |
 | `.log(str)` | Logs `str` to console or to the visualizer |
 
 #### Client
@@ -196,7 +209,7 @@ Functions like `.on()` or `.tick()` send the NodeState as function context to th
 | `.on(name, f [, thisArg])` | Attaches a handler `f(from, msg)` for event `name`. If `f` returns false, the previously attached handler(s) by this `name` are bypassed. |
 | `.tick(t, f [, thisArg])` | Attaches a handler `f` for a tick event that occurs every `t` msec. If `f` returns false, the handler is unattached. If it returns an integer, the tick interval is changed to that integer. |
 | `.delay(t, f [, thisArg])` | `f` is called once, in `t` msec. |
-| `.prob(name, p, f [, thisArg])` | Attaches a handler `f` for a probabilistic tick event named `name`, which has a `p` chance of occuring every msec. |
+| `.prob(name, p, f [, thisArg])` | Attaches a handler `f` for a probabilistic event named `name`, which uses `p` as a rate parameter. |
 | `.deprob(name)` | Removes a probabilistic handler named `name`. |
 | `.now()` | Returns the current time, in msec, from the start of the simulation |
 | `.setColor(str)` | Sets the color of the current node to `str` |

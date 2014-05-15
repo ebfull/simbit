@@ -100,6 +100,8 @@ client.init(function() {
 
 				mapMasters[self.id].num++;
 				mapMasters[self.id].last = b.h;
+
+				signedByPrev[b.prev] = true;
 			} else {
 				// ship off an unsignedblock to get it signed by the master
 				self.inventory.createObj("unsignedblock", {id:"unsigned_" + b.id, b:b})

@@ -418,7 +418,7 @@
 			setInterval(function() {
 				if (play && DELAY_RUN.net) {
 					DELAY_RUN.net._run(amt);
-					VISUALIZER.rehash();
+					VISUALIZER.rehash(DELAY_RUN.net.now);
 					$("#elapsed").html((DELAY_RUN.net.now / 1000).toFixed(2) + " seconds")
 				}
 			}, 10);

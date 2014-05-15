@@ -100,7 +100,7 @@ function NodeTickEvent(delay, f, ctx) {
 
 	this.run = function(network) {
 		var newDelay;
-		if (newDelay = f.call(ctx) !== false) {
+		if ((newDelay = f.call(ctx)) !== false) {
 			if (typeof newDelay == "number")
 				this.delay = newDelay;
 

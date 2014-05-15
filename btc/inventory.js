@@ -74,7 +74,7 @@ function Inventory(self) {
 		for (var p in this.tellPeer) {
 			var invPacket = this.tellPeer[p];
 
-			if (Object.keys(invPacket) != 0) {
+			if (Object.keys(invPacket).length != 0) {
 				doneSomething = true;
 				this.__send_inv(p, invPacket)
 
@@ -225,17 +225,24 @@ function Inventory(self) {
 	}
 
 	self.on("peermgr:connect", function(from) {
+		var relaySet = this.objects.find({status:"relay"});
+
 		this.peerHas[from] = {};
 		this.tellPeer[from] = {};
 		this.mapAskFor[from] = {};
 
-		// todo: send full inventory
+		relaySet.forEach(function(o) {
+			this.tellPeer[from][o.id] = o.type;
+		}, this)
+
+		this.addTick();
 	}, this)
 
 	self.on("peermgr:disconnect", function(from) {
 		delete this.peerHas[from]
 		delete this.tellPeer[from]
 		delete this.mapAlreadyAskedFor[from]
+		delete this.mapAskFor[from];
 	}, this)
 
 	self.on("inv", this.onInv, this)

@@ -13,6 +13,8 @@ btc.Blockchain.GenesisBlock.difficulty = 3700;
 client.use(peermgr)
 client.use(btc)
 
+var hashrate = 1;
+
 client.init(function() {
 	var self = this;
 
@@ -184,7 +186,54 @@ client.init(function() {
 		}
 	}, this.miner)
 ////////////////////////////////////////////////
-	this.mine(0.01);
+	var myHashrate = (hashrate / 2) * Math.random();
+	hashrate -= myHashrate;
+	this.mine(myHashrate);
+////////////////////////////////////////////////
+	// adjust peering relationships based on who sends us blocks!
+
+	var funpeers = {};
+	this.on("peermgr:connect", function(id) {
+		funpeers[id] = {blocks:0};
+		return true;
+	})
+	this.on("peermgr:disconnect", function(id) {
+		delete funpeers[id];
+		return true;
+	})
+	this.on("obj:block", function(from, b) {
+		funpeers[from].blocks++;
+		return true;
+	})
+	this.tick(100 * 1000, function() {
+		if (this.peermgr.numActive() != this.peermgr.maxpeers) {
+			return true;
+		}
+		// every 100 seconds boot off a poorly performing peer
+		var worst_n = Infinity;
+		var worst = null;
+
+		var t = 0;
+
+		for (var p in funpeers) {
+			t += funpeers[p].blocks;
+			if (funpeers[p].blocks < worst_n) {
+				worst_n = funpeers[p].blocks;
+				worst = p;
+			}
+		}
+
+		if (t < 20) // we want a sample of 20 blocks
+			return true;
+
+		if (worst != null) {
+			this.peermgr.disconnect(worst);
+		}
+
+		for (var p in funpeers) {
+			funpeers[p].blocks = 0;
+		}
+	})
 })
 
 net.add(100, client)

@@ -23,6 +23,7 @@ function PeerMgr(self) {
 	// self.peers = this;
 	self.peermgr = this;
 
+	this.ticking = false;
 	this.peers = {}; // current established or attempted connections
 	this.numpeers = 0; // the number of peers we have
 	this.maxpeers = 8; // the max number of peers we can have
@@ -33,8 +34,6 @@ function PeerMgr(self) {
 
 	var peerTick = function() {
 		if (this.numpeers < this.maxpeers) {
-			if (self.now() > 1000 * 1000) // after 1000 seconds, let's not bother trying to form new connections and assume the network is in a steady state
-				return false;
 			// we need more peers
 
 			// let's try connecting to a peer in our nodearchive, if there are any
@@ -54,9 +53,34 @@ function PeerMgr(self) {
 					this.getpeers(randomPeer.id)
 				}
 			}
+
+			if (self.now() > 1000 * 1000) // after 1000 seconds, let's tick every 5 seconds instead
+				return 5000;
 		} else {
+			_ticking = false;
+			self.peermgr.ticking = false;
 			return false; // no more ticking necessary
 		}
+	}
+
+	var _ticking = false;
+	var startTicking = function() {
+		if (!_ticking) {
+			_ticking = true;
+			self.peermgr.ticking = true;
+
+			self.tick(1000, peerTick, self.peermgr);
+		}
+	}
+
+	this.numActive = function() {
+		var n = 0;
+		for (var p in this.peers) {
+			if (this.peers[p].active) {
+				n++;
+			}
+		}
+		return n;
 	}
 
 	this.send = function(to, name, msg) {
@@ -115,8 +139,16 @@ function PeerMgr(self) {
 	// disconnect from a remote node
 	this.disconnect = function(p) {
 		if (typeof this.peers[p] != "undefined") {
-			this.nodearchive.push(this.peers[p]);
-			delete this.peers[p]
+			var peer = this.peers[p];
+			delete this.peers[p];
+
+			//if (peer.active) {
+				self.send(p, 'disconnect', {})
+				self.disconnect(p);
+				startTicking();
+			//}
+
+			this.nodearchive.push(peer);
 			this.numpeers -= 1;
 			self.handle(p, "peermgr:disconnect", p)
 		}
@@ -179,7 +211,7 @@ function PeerMgr(self) {
 					}
 				}
 
-				this.nodearchive.unshift(new PeerState(candidate.id, self.now()))
+				this.nodearchive.push(new PeerState(candidate.id, self.now()))
 			}
 		}
 	}
@@ -257,7 +289,7 @@ function PeerMgr(self) {
 		var rejectPeer = new PeerState(from, self.now());
 
 		// add back to nodearchive in the front
-		this.nodearchive.unshift(rejectPeer)
+		this.nodearchive.push(rejectPeer)
 
 		// send node a rejection message
 		this.reject(rejectPeer);
@@ -268,7 +300,7 @@ function PeerMgr(self) {
 	//
 
 	// tick that runs every 1 second
-	self.tick(1000, peerTick, this);
+	startTicking();
 
 	self.on("connect", this.onConnect, this);
 	self.on("accept", this.onAccept, this);

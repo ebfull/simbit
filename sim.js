@@ -189,6 +189,8 @@ client.init(function() {
 				self.inventory.relay(ub.b.id, true);
 
 				self.blockchain.chainstate.enter(ub.b);
+
+				self.miner.restage();
 			}
 		} else {
 			// just relay the unsigned block

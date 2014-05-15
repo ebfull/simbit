@@ -461,7 +461,7 @@ Network.prototype = {
 	// connects two nodes in the visualizer
 	connect: function (a, b) {
 		if (this.visualizer) {
-			this.visualizer.connect(this.nodes[a]._vid, this.nodes[b]._vid);
+			this.visualizer.connect(this.nodes[a]._vid, this.nodes[b]._vid, latency(this.nodes[a].id, this.nodes[b].id));
 		}
 	},
 

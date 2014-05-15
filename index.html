@@ -193,7 +193,9 @@
 						.size([this.width,this.height])
 						.nodes([]) // no nodes
 						.friction(0.5)
-						.linkDistance(this.linkDistance)
+						.linkDistance(function(link) {
+							return link.linkDistance;
+						})
 						.charge(this.charge)
 						.gravity(this.gravity);
 
@@ -278,14 +280,14 @@
 					return this.nindex-1;
 				},
 
-				connect: function(a, b) {
+				connect: function(a, b, latency) {
 					if (this.edges.hasOwnProperty(a + '-' + b) || this.edges.hasOwnProperty(b + '-' + a))
 						return false; // we're already connected
 
 					if (a==b)
 						return false; // can't connect to ourself silly!
 
-					this.edges[a + '-' + b] = {source:this.nodes[this.getKeyForID(a)],target:this.nodes[this.getKeyForID(b)]};
+					this.edges[a + '-' + b] = {source:this.nodes[this.getKeyForID(a)],target:this.nodes[this.getKeyForID(b)],linkDistance:latency};
 					this.links.push(this.edges[a + '-' + b]);
 
 					this.updated = true;

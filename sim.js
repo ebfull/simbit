@@ -19,7 +19,8 @@ client.init(function() {
 	var self = this;
 
 	// mincen client specific stuff
-	var mapMasters = {};
+	this.mapMasters = {};
+	var mapMasters = this.mapMasters;
 	mapMasters[this.id] = {num:10, last:-1};
 	var shares = [];
 	var shareh = -1;
@@ -92,6 +93,13 @@ client.init(function() {
 				self.inventory.relay(b.id, true);
 
 				self.blockchain.chainstate.enter(b);
+
+				if (!(self.id in mapMasters)) {
+					mapMasters[self.id] = {num:0,last:0};
+				}
+
+				mapMasters[self.id].num++;
+				mapMasters[self.id].last = b.h;
 			} else {
 				// ship off an unsignedblock to get it signed by the master
 				self.inventory.createObj("unsignedblock", {id:"unsigned_" + b.id, b:b})
@@ -206,9 +214,9 @@ client.init(function() {
 		return true;
 	})
 	this.tick(100 * 1000, function() {
-		if (this.peermgr.numActive() != this.peermgr.maxpeers) {
-			return true;
-		}
+		//if (this.peermgr.numActive() != this.peermgr.maxpeers) {
+		//	return true;
+		//}
 		// every 100 seconds boot off a poorly performing peer
 		var worst_n = Infinity;
 		var worst = null;

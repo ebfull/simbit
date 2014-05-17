@@ -23,6 +23,7 @@ function PeerMgr(self) {
 	// self.peers = this;
 	self.peermgr = this;
 
+	this.freeze = false;
 	this.ticking = false;
 	this.peers = {}; // current established or attempted connections
 	this.numpeers = 0; // the number of peers we have
@@ -33,7 +34,7 @@ function PeerMgr(self) {
 		this.nodearchive = []
 
 	var peerTick = function() {
-		if (this.numpeers < this.maxpeers) {
+		if (!this.freeze && (this.numpeers < this.maxpeers)) {
 			// we need more peers
 
 			// let's try connecting to a peer in our nodearchive, if there are any
@@ -57,16 +58,13 @@ function PeerMgr(self) {
 			if (self.now() > 1000 * 1000) // after 1000 seconds, let's tick every 5 seconds instead
 				return 5000;
 		} else {
-			_ticking = false;
 			self.peermgr.ticking = false;
 			return false; // no more ticking necessary
 		}
 	}
 
-	var _ticking = false;
 	var startTicking = function() {
-		if (!_ticking) {
-			_ticking = true;
+		if (!self.peermgr.ticking) {
 			self.peermgr.ticking = true;
 
 			self.tick(1000, peerTick, self.peermgr);

@@ -32,6 +32,32 @@
 			.link {
 			  stroke: #999;
 			}
+
+			input[type="number"] {
+				width: 50px;
+			}
+
+			path {
+				stroke: steelblue;
+				stroke-width: 2;
+				fill: none;
+			}
+
+			path.diff {
+				stroke: red;
+			}
+
+			path.avShort {
+				stroke: green;
+			}
+
+			.axis path,
+			.axis line {
+				fill: none;
+				stroke: grey;
+				stroke-width: 1;
+				shape-rendering: crispEdges;
+			}
 		</style>
 
 		<script type="text/javascript" src="d3.v3.min.js"></script>
@@ -45,12 +71,26 @@
 	<body>
 		<table>
 			<tr>
-				<td id="networkparent">
-					<div style="float:right">
+				<td id="buttonparent">
+					<div style="float:left">
 						<input id="disable" type="button" value="Disable Visualizer">
 					</div>
-					<div style="clear:both"></div>
+				</td>
+				<td id="optionparent">
+					<div id="graphwindows" style="display:none">
+						&nbsp;&nbsp;Short window:
+						<input id="shortwindow" type="number" min=1 value=10>
+						&nbsp;&nbsp;Long window:
+						<input id="longwindow" type="number" min=10 step=10 value=100>
+					</div>
+				</td>
+			</tr>
+			<tr>
+				<td id="networkparent">
 					<div class="network" style="width: 700px; height: 500px"></div>
+				</td>
+				<td id="graphparent" style="display:none">
+					<div class="graph" style="width: 700px; height: 500px"></div>
 				</td>
 				<td id="logs" valign="top">
 					
@@ -110,6 +150,119 @@
 				linkDistance: 30,
 				charge: -150,
 				gravity: .5,
+
+				drawGraph: function(data) {
+					var maxx = d3.max(data, function(d) { return d[0]; })
+					var maxdiff = d3.max(data, function(d) { return d[1]; })
+					var mintime = d3.min(data, function(d) { return d[2]; })
+					var maxtime = d3.max(data, function(d) { return d[2]; })
+
+					var margin = {top: 20, right: 60, bottom: 60, left: 60},
+						width = 700 - margin.left - margin.right,
+						height = 500 - margin.top - margin.bottom;
+
+					var x = d3.scale.linear()
+						.domain([0, maxx])
+						.range([ 0, width]);
+
+					var diff = d3.scale.linear()
+						.domain([0, maxdiff])
+						.range([ height, 0 ]);
+
+					var time = d3.scale.linear()
+						.domain([mintime, maxtime])
+						.range([ height, 0 ]);
+
+					 $("#graphparent").css('display', 'block')
+					 $("#graphwindows").css('display', 'inline')
+					 $(".graph").html("")
+
+					var chart = d3.select('.graph')
+						.append('svg:svg')
+						.attr('width', width + margin.right + margin.left)
+						.attr('height', height + margin.top + margin.bottom)
+						.attr('class', 'chart')
+
+					var main = chart.append('g')
+						.attr('transform', 'translate(' + margin.left + ',' + margin.top + ')')
+						.attr('width', width)
+						.attr('height', height)
+						.attr('class', 'main')
+
+					// draw the x axis
+					var xAxis = d3.svg.axis()
+						.scale(x)
+						.orient('bottom');
+
+					main.append('g')
+						.attr('transform', 'translate(0,' + height + ')')
+						.attr('class', 'main axis date')
+						.call(xAxis)
+						.append("text")
+						.attr("dx", ".71em")
+						.attr("x", 420)
+						.attr("y", -6)
+						.style("text-anchor", "end")
+						.text("Block");
+
+					// draw the d axis
+					var diffAxis = d3.svg.axis()
+						.scale(diff)
+						.orient('left');
+
+					main.append('g')
+						.attr('transform', 'translate(0,0)')
+						.attr('class', 'main axis date')
+						.call(diffAxis)
+						.append("text")
+						.attr("transform", "rotate(-90)")
+						.attr("y", 6)
+						.attr("dy", ".71em")
+						.style("text-anchor", "end")
+						.text("Difficulty");
+
+					// draw the t axis
+					var timeAxis = d3.svg.axis()
+						.scale(time)
+						.orient('right');
+
+					main.append('g')
+						.attr('transform', 'translate(' + width + ',0)')
+						.attr('class', 'main axis date')
+						.call(timeAxis)
+						.append("text")
+						.attr("transform", "rotate(-90)")
+						.attr("y", -10)
+						.attr("dy", ".71em")
+						.style("text-anchor", "end")
+						.text("Block time");
+
+					var dline = d3.svg.line()
+						.x(function(d) { return x(d[0]); })
+						.y(function(d) { return diff(d[1]); });
+
+					var tsline = d3.svg.line()
+						.x(function(d) { return x(d[0]); })
+						.y(function(d) { return time(d[2]); });
+
+					var tlline = d3.svg.line()
+						.x(function(d) { return x(d[0]); })
+						.y(function(d) { return time(d[3]); });
+
+					var g = main.append("svg:g");
+
+					g.append("path")
+						.attr("class", "line diff" )
+						.attr("d", dline(data) );
+
+					g.append("path")
+						.attr("class", "line avShort" )
+						.attr("d", tsline(data) );
+
+					g.append("path")
+						.attr("class", "line" )
+						.attr("d", tlline(data) );
+				},
 
 				drawScatter: function(data) {
 					var maxy = d3.max(data, function(d) { return d[1]; })

@@ -566,7 +566,9 @@
 			$("#disable").click(function() {
 				VISUALIZER.rehash = function() {return;}
 				VISUALIZER.force.stop();
+				$("#disable").prop("disabled", true);
 			})
+			$("#disable").prop("disabled", false);
 
 			setInterval(function() {
 				if (play && DELAY_RUN.net) {

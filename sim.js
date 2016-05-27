@@ -249,4 +249,73 @@ client.init(function() {
 })
 
 net.add(100, client)
+
+function getTimeWindow(start, size) {
+	var timeWindow = []
+	var cur = start;
+
+	var last = -1;
+	while (cur && timeWindow.length < size) {
+		if (last >= 0) {
+			var timeSince = (last - cur.time)/1000; // in seconds
+			timeWindow.push(timeSince);
+		}
+
+		last = cur.time;
+		cur = cur._prev();
+	}
+	return timeWindow;
+}
+
+function getAverage(timeWindow) {
+	var average = 0;
+	if (timeWindow.length > 0) {
+		timeWindow.forEach(function(n) {
+			average += n;
+		})
+		average /= timeWindow.length;
+	}
+	return average;
+}
+
+var graphData = [];
+var checkpoint = -1;
+var shortWindow = 10;
+var longWindow = 100;
+if (net.visualizer) {
+	net.check(1000 * 1000, function() {
+		var sw = parseInt($("#shortwindow").val());
+		var lw = parseInt($("#longwindow").val());
+		if (sw != shortWindow || lw != longWindow) {
+			shortWindow = sw;
+			longWindow = lw;
+			graphData = [];
+			checkpoint = -1;
+		}
+
+		var head = net.nodes[90].blockchain.chainstate.head;
+		var cur = head;
+		var timeWindow = getTimeWindow(cur, head.h - checkpoint + longWindow);
+
+		var temp = [];
+		cur = head;
+		var last = -1;
+		while (cur && cur.h >= checkpoint) {
+			if (last >= 0) {
+				var timeSince = (last - cur.time)/1000; // in seconds
+				var avShort = getAverage(timeWindow.slice(head.h-cur.h, head.h-cur.h+shortWindow));
+				var avLong = getAverage(timeWindow.slice(head.h-cur.h, head.h-cur.h+longWindow));
+				temp.push([cur.h, cur.difficulty, avShort, avLong]);
+			}
+
+			last = cur.time;
+			cur = cur._prev();
+		}
+		graphData = temp.concat(graphData);
+		checkpoint = head.h;
+
+		net.visualizer.drawGraph(graphData);
+	})
+}
+
 net.run(Infinity)
